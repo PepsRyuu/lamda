@@ -6,7 +6,6 @@
 	}
 	
 	var definitionTempQueue = []; // It's a queue because there could be multiple defines in one file
-	var moduleDefinitions = {};
 
 	
 	/**
@@ -22,12 +21,14 @@
 		return function (sSrc, requester, config, fOnload) {
 			var oScript = document.createElement("script");
 			oScript.type = "text\/javascript";
+			oScript.setAttribute("async", "");
+			oScript.setAttribute("data-context", config.context);
 			oScript.src = (config.baseUrl + "/" + sSrc + ".js").replace("//", "/");
 			oScript.onerror = function(e) {
 				throw new Error("\n  Missing: " + e.target.src + "\n  Requester: " + requester);
 			}
 			oScript.onload = fOnload;
-			oScript.setAttribute("async", "");
+			
 			oHead.appendChild(oScript);  
 			return oScript;
 		}
@@ -51,14 +52,18 @@
 		config.context = config.context || "_";
 		config.baseUrl = config.baseUrl || "./";
 		
-		require.s.contexts[config.context] = {};
-		require.s.contexts[config.context].config = config;
-		require.s.contexts[config.context].modules = {};
+		if (!require.s.contexts[config.context]) {
+			require.s.contexts[config.context] = {};
+			require.s.contexts[config.context].config = config;
+			require.s.contexts[config.context].modules = {};
+			require.s.contexts[config.context].definitions = {};
+			require.s.contexts[config.context].definitionListeners = {};
+		}
+		
 		completeScriptLoad("", "", config, function() {
 			loadDependencyScripts("", config, dependencies, function() {
 				loadDependencyInstances("", config, dependencies, callback);
 			});
-		
 		});
 	}
 	
@@ -123,8 +128,13 @@
 	var completeScriptLoad = function(moduleName, originUrl, config, callback) {
 		var definitionTemp;
 		var notCompleted = definitionTempQueue.length;
+		if (notCompleted === 0) {
+			callback();
+		}
+		
 		for (var i = 0; i < definitionTempQueue.length; i++) {
 			definitionTemp = definitionTempQueue[i];
+			var moduleDefinitions = require.s.contexts[config.context].definitions;
 			var name = definitionTemp.name || moduleName;
 			moduleDefinitions[name] = definitionTemp;
 			moduleDefinitions[resolvePath(originUrl, name, config)] = definitionTemp;
@@ -149,6 +159,7 @@
 	 * @param {Function} callback
 	 */
 	var callPlugin = function(currentPath, dependencyPath, config, callback) {
+		var moduleDefinitions = require.s.contexts[config.context].definitions;
 		var pathParts = dependencyPath.split("!");
 		var pluginUrl = resolvePath(currentPath, pathParts[0], config);
 		var pluginObj = moduleDefinitions[pathParts[0]]? moduleDefinitions[pathParts[0]] : moduleDefinitions[pluginUrl];
@@ -186,6 +197,9 @@
 	 * @param {Function} callback
 	 */
 	var loadDependencyScripts = function(currentPath, config, dependencies, callback) {
+		var moduleDefinitions = require.s.contexts[config.context].definitions;
+		var definitionListeners = require.s.contexts[config.context].definitionListeners;
+
 		var notCompleted = dependencies.length;
 		if (notCompleted === 0) {
 			callback();
@@ -213,16 +227,30 @@
 					}
 				}
 				
-				if (!moduleDefinitions[dependencyPath] && !moduleDefinitions[url]) {
-					moduleDefinitions[url] = "Pending";
-					importScript(url, currentPath, config, function() {
-						completeScriptLoad(url, translatePath(currentPath, config), config, function() {
-							finish();
-						});
-					});
+				if (moduleDefinitions[dependencyPath] === "Pending" || moduleDefinitions[url] === "Pending") {
+					if (!definitionListeners[url]) {
+						definitionListeners[url] = [];
+					}
+					definitionListeners[url].push(finish);
 				} else {
-					finish();
-				}
+					if (!moduleDefinitions[dependencyPath] && !moduleDefinitions[url]) {
+						moduleDefinitions[url] = "Pending";
+						importScript(url, currentPath, config, function() {
+							completeScriptLoad(url, translatePath(currentPath, config), config, function() {
+								finish();
+								if (definitionListeners[url]) {
+									definitionListeners[url].forEach(function(listener) {
+										listener();
+									});
+									delete definitionListeners[url];
+								}
+							});
+						});
+					} else {
+						finish();
+					}
+				}				
+				
 			})(dependencies[i]);
 		}
 	
@@ -238,6 +266,8 @@
 	 * @param {Function} callback
 	 */
 	var loadDependencyInstances = function(currentPath, config, dependencies, callback) {
+		var moduleDefinitions = require.s.contexts[config.context].definitions;
+
 		var contextModules = require.s.contexts[config.context].modules;
 		var args = [];
 		
@@ -250,10 +280,11 @@
 		}
 		
 		dependencies.forEach(function(dependencyPath) {
-			var name = resolvePath(currentPath, dependencyPath, config);	
+					
+			var name = resolvePath(currentPath, dependencyPath, config, false);	
 			
 			if (!contextModules[name]) {
-				var definition = moduleDefinitions[name];
+				var definition = moduleDefinitions[name] || moduleDefinitions[translatePath(name, config)];
 				if (definition.dependencies) {
 					loadDependencyInstances(name, config, definition.dependencies, function() {
 						executeDependencyCallback(name, definition, arguments);
@@ -307,7 +338,8 @@
 	 * @param {Object} config
 	 * @return {String} realPath
 	 */
-	var resolvePath = function(currentPath, targetPath, config) {
+	var resolvePath = function(currentPath, targetPath, config, translate) {
+		translate = translate === undefined? true : translate;
 		currentPath = currentPath == ""? "" : currentPath.substring(0, currentPath.lastIndexOf("/"));
 		var resultPath;
 		
@@ -333,9 +365,11 @@
 			resultPath = targetPath;
 		}
 		
-		resultPath = (translatePath(resultPath, config)).replace("//", "/");
+		if (translate) {
+			resultPath = translatePath(resultPath, config);
+		}
 		
-		return prefix + resultPath;
+		return prefix + resultPath.replace("//", "/");
 	}
 
 	// Expose global variables
