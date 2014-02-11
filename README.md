@@ -10,6 +10,14 @@ Light Asynchronous Module Definition Alternative
 * Plans for useful helper functions (such as getting context configuration), as well as a pipeline mechanism where you can validate imported JavaScript files (useful for when working with multiple teams).
 * Currently 4KB when compressed versus require.js 19KB
 
+## Browser Support
+
+Tested with the below browsers (anything that fires script onload event immediately after script execution):
+
+* Internet Explorer 10+
+* Firefox 17+
+* Chrome 32+
+
 ## What's supported?
 
 * Context for require calls

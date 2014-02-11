@@ -1,6 +1,6 @@
 {
   "name": "lamda",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Light Asynchronous Module Definition Alternative",
   "main": "lamda.js",
   "scripts": {
