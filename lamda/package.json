@@ -1,11 +1,8 @@
 {
   "name": "lamda",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Light Asynchronous Module Definition Alternative",
   "main": "lamda.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
     "url": "git://github.com/PepsRyuu/lamda.git"
