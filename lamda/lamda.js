@@ -265,6 +265,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
         var contextDefinitions = core.require.s.contexts[config.context].definitions;
         var pathParts = dependencyPath.split("!");
         var name = core.resolvePath(currentPath, dependencyPath, config);
+        var fileName = core.resolvePath(currentPath, pathParts[1], config);
         var pluginName = core.resolvePath(currentPath, pathParts[0], config);
         var pluginObj = contextDefinitions[pluginName];
 
@@ -317,9 +318,9 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
 
         // Call the plugin with the API
         if (config.isBuild) {
-            pluginInstance.writeFile(pluginObj.name, pathParts[1], localRequire, write, config);
+            pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
         } else {
-            pluginInstance.load(pathParts[1], localRequire, onLoad, config);
+            pluginInstance.load(fileName, localRequire, onLoad, config);
         }
     }
 
