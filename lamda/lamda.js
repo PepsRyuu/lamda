@@ -177,7 +177,6 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
                 resultPath = targetPath;
             }
 
-            console.log(prefix + resultPath.replace("//", "/"))
             return prefix + resultPath.replace("//", "/");
         }
     }
