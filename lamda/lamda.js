@@ -177,6 +177,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
                 resultPath = targetPath;
             }
 
+            console.log(prefix + resultPath.replace("//", "/"))
             return prefix + resultPath.replace("//", "/");
         }
     }
@@ -287,7 +288,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
 
         // Prepare the plugin API
         var pluginInstance = pluginObj.callback.apply(config, args);
-        var localRequire = {toUrl:function(path){return config.baseUrl + "/" + core.resolvePath(currentPath, path, config);}};
+        var localRequire = {toUrl:function(path){return (config.baseUrl + "/" + core.resolvePath(currentPath, path, config)).replace("//", "/");}};
 
         var onLoad = function(content) {
             updateContextDefinition(config, name, {callback: function() {
