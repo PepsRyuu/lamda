@@ -4,10 +4,8 @@ node_js:
   - "0.10"
 
 before_install:
+  - cd lamda
   - npm install -g gulp
 
-install:
-  - cd lamda && npm install
-
 script:
-  - cd lamda && gulp
+  - gulp
