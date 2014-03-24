@@ -1,11 +1,13 @@
 language: node_js
 
 node_js:
-  - 0.8
-  - 0.10
+  - "0.10"
 
 before_install:
   - npm install -g gulp
+
+install:
+  - cd lamda && npm install
 
 script:
   - cd lamda && gulp
