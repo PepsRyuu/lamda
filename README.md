@@ -1,4 +1,4 @@
-# lamda.js [![Build Status](https://travis-ci.org/Dremora/lamda.svg?branch=master)](https://travis-ci.org/Dremora/lamda)
+# lamda.js [![Build Status](https://travis-ci.org/PepsRyuu/lamda.svg?branch=master)](https://travis-ci.org/PepsRyuu/lamda)
 
 Light Asynchronous Module Definition Alternative
 
