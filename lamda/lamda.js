@@ -317,7 +317,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
         }
 
         // Call the plugin with the API
-        if (config.isBuild) {
+        if (config.isBuild && pluginInstance.writeFile) {
             pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
         } else {
             pluginInstance.load(fileName, localRequire, onLoad, config);
