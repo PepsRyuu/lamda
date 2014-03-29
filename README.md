@@ -39,5 +39,5 @@ require("lamda-optimizer")(requireConfig, outputdir, callback);
 
 ## Additional require configurations for lamda-optimizer.js
 
-* modules (Array<Object>), modules to be exported. Specify "name" (String), "location" (String), and "exclude" (Array<String>). Excludes work off a reference count mechanism. The dependencies of an exclude are only excluded if there is nothing else referencing those dependencies.
+* modules (Array<Object>), modules to be exported. Specify "name" (String), "location" (String) and "exclude" (Array<String>). Excludes work off a reference count mechanism. The dependencies of an exclude are only excluded if there is nothing else referencing those dependencies.
 * header (String), string to appear on top of every exported module. Useful for licenses.

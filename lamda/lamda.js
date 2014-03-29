@@ -282,9 +282,6 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             }
         })
 
-        // Set up the context definition for this import
-        updateContextDefinition(config, name);
-
         // Prepare the plugin API
         var pluginInstance = pluginObj.callback.apply(config, args);
         var localRequire = {toUrl:function(path){return (config.baseUrl + "/" + core.resolvePath(currentPath, path, config)).replace("//", "/");}};
@@ -316,10 +313,15 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             });
         }
 
+        // Set up the context definition for this import
+        if ((config.isBuild && pluginInstance.writeFile) || !config.isBuild) {
+            updateContextDefinition(config, name);
+        }
+
         // Call the plugin with the API
         if (config.isBuild && pluginInstance.writeFile) {
             pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
-        } else {
+        } else if (!config.isBuild) {
             pluginInstance.load(fileName, localRequire, onLoad, config);
         }
     }

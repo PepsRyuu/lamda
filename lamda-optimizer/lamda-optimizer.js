@@ -11,7 +11,7 @@ exports = module.exports = function(config, outputdir, callback) {
     GLOBAL.nodeRequire = require;
 
     function decreaseDependencyReferenceCounts(config, module, dependencies) {
-        var context = lamda.require.s.contexts[currentModule.location];
+        var context = lamda.require.s.contexts[currentModule.name];
         var definitions = context.definitions;
         if (dependencies) {
             for (var i = 0; i < dependencies.length; i++) {
@@ -50,6 +50,11 @@ exports = module.exports = function(config, outputdir, callback) {
                 return;
             }
 
+            if (definition.name === undefined) {
+                console.log("ERROR: " + defName + " is undefined.\n Confirm file is wrapped as an AMD module and that any defined name matches the file name.");
+                process.exit(1);
+            }
+
             output += "define('"+definition.name+"',";
             if (definition.dependencies) {
                 var dependencies = definition.dependencies;
@@ -72,7 +77,16 @@ exports = module.exports = function(config, outputdir, callback) {
         if (module.name !== module.location)
             output += "define('"+module.name+"', ['"+module.location+"'], function(main) {return main;});";
 
-        recursiveMkdir(outputdir + "/" + module.name.substring(0, module.name.lastIndexOf("/")));
+        var outputFile = module.name;
+        if (config.packages) {
+            for (var i = 0; i < config.packages.length; i++) {
+                if (config.packages[i].name === module.name) {
+                    outputFile += "/main";
+                }
+            }
+        }
+
+        recursiveMkdir(outputdir + "/" + outputFile.substring(0, outputFile.lastIndexOf("/")));
         if (config.minify) {
             output = UglifyJS.minify(output, {fromString: true}).code;
         }
@@ -81,7 +95,9 @@ exports = module.exports = function(config, outputdir, callback) {
             output = config.header + "\n" + output;
         }
 
-        fs.writeFileSync(outputdir + "/" + module.name +".js", output);
+
+
+        fs.writeFileSync(outputdir + "/" + outputFile +".js", output);
     }
 
     function optimize(module) {
@@ -90,7 +106,7 @@ exports = module.exports = function(config, outputdir, callback) {
 
         currentModule = module;
         var localConfig = lamda.merge(config, {
-            context: module.location,
+            context: module.name,
             isBuild: true,
             inlineText: true
         });
@@ -98,8 +114,8 @@ exports = module.exports = function(config, outputdir, callback) {
         console.log("\n\t"+module.name+"\n\t----------------------");
         lamda.require(localConfig, [module.location])
 
-        excludeDefinitions(localConfig, lamda.require.s.contexts[module.location].definitions);
-        write(module, lamda.require.s.contexts[module.location].definitions);
+        excludeDefinitions(localConfig, lamda.require.s.contexts[module.name].definitions);
+        write(module, lamda.require.s.contexts[module.name].definitions);
         console.log("\n");
     }
 

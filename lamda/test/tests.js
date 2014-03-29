@@ -49,6 +49,17 @@ suite('require', function () {
     });
   });
 
+  test('No Write plugin', function (done) {
+    require([
+      "nowriteplugin!message.html",
+      "nowriteplugin!message2.html"
+    ], function (message, message2) {
+      assert.equal(message, "Hello World!");
+      assert.equal(message2, "Foo Bar!");
+      done();
+    });
+  });
+
   test('Package Test', function (done) {
     require({
       packages: [
