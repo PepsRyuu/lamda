@@ -68,8 +68,10 @@ exports = module.exports = function(config, outputdir, callback) {
                 output += "]";
             }
 
-            if (definition.callback) {
+            if (definition.callback && typeof definition.callback === "function") {
                 output += "," + definition.callback.toString();
+            } else if (definition.callback && typeof definition.callback === "object") {
+                output += "," + JSON.stringify(definition.callback);
             }
             output += ");\n\n";
         });
