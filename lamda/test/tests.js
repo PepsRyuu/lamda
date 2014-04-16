@@ -94,5 +94,17 @@ suite('require', function () {
     });
   });
 
+
+  test('local require config', function (done) {
+    require({
+      customcontextconfig: "customcontextconfig"
+    }, [
+      "localrequireconfig"
+    ], function (localrequireconfig) {
+      assert.equal(localrequireconfig.customcontextconfig, "customcontextconfig");
+      done();
+    });
+  });
+
 });
 

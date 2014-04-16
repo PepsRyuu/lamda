@@ -31,9 +31,15 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             config = core.merge(globalConfig, config || {});
             core.require.s = core.require.s || {contexts: {}};
 
+            var context = core.require.s.contexts[config.context];
+
+            if (context) {
+                context.config = core.merge(context.config, config);
+            }
+
             // If the context doesn't already exist, create it
-            if (!core.require.s.contexts[config.context]) {
-                core.require.s.contexts[config.context] = {
+            if (!context) {
+                core.require.s.contexts[config.context] = context = {
                     config: config,
                     instances: {},
                     definitions: {},
@@ -41,9 +47,9 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
                 };
 
                 // Some default definitions that are required to exist by plugins
-                updateContextDefinition(config, "require", {name: "require", callback: {}});
+                updateContextDefinition(config, "require", {name: "require", callback: {config: function(){return context.config}}});
                 updateContextDefinition(config, "exports", {name: "exports", callback: {}});
-                updateContextDefinition(config, "module", {name: "module", callback: {config: function() {return config;}}});
+                updateContextDefinition(config, "module", {name: "module", callback: {config: function() {return context.config;}}});
             }
 
             // Parse packages
