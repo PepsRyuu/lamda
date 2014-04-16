@@ -76,9 +76,6 @@ exports = module.exports = function(config, outputdir, callback) {
             output += ");\n\n";
         });
 
-        if (module.name !== module.location)
-            output += "define('"+module.name+"', ['"+module.location+"'], function(main) {return main;});";
-
         var outputFile = module.name;
         if (config.packages) {
             for (var i = 0; i < config.packages.length; i++) {
@@ -113,6 +110,20 @@ exports = module.exports = function(config, outputdir, callback) {
             inlineText: true
         });
 
+        // Begin
+        lamda.createContext(localConfig);
+        config.modules.forEach(function(mod) {
+            if (mod.name !== mod.location) {
+                lamda.require.s.contexts[localConfig.context].definitions[mod.name] = {
+                    name: mod.name,
+                    dependencies: [mod.location],
+                    callback: function(main) {
+                        return main;
+                    }
+                }
+            }
+        });
+
         console.log("\n\t"+module.name+"\n\t----------------------");
         lamda.require(localConfig, [module.location])
 
@@ -137,7 +148,6 @@ exports = module.exports = function(config, outputdir, callback) {
         recursiveMkdir(path, position + 1);
     }
 
-    // Begin
     config.modules.forEach(optimize);
     callback();
 

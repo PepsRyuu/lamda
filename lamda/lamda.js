@@ -12,7 +12,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
     /**
      *
      */
-    function require(arg1, arg2, arg3) {
+    function _require(arg1, arg2, arg3) {
         // Figure out what the arguments are
         var config, dependencies, callback;
         if (!(arg1 instanceof Array)) {
@@ -21,7 +21,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             dependencies = arg1, callback = arg2;
         }
 
-        config = config? require.config(config) : require.s.contexts["_"].config;
+        config = config? _require.config(config) : _require.s.contexts["_"].config;
 
         // Handle all of the defines before this require call, and then load scripts
         completeScriptLoad(config, "", function() {
@@ -34,7 +34,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
     /**
      *
      */
-    require.config = function(config) {
+    _require.config = function(config) {
         // Parse packages and translate them all first
         if (config.packages) {
             for (var i = 0; i < config.packages.length; i++) {
@@ -49,13 +49,13 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
         }
 
         // test for the context
-        var contextObj = require.s.contexts[config.context || "_"];
+        var contextObj = _require.s.contexts[config.context || "_"];
 
         // If it exists, merge existing context config with new config
         if (contextObj) {
             contextObj.config = merge(contextObj.config, config);
         } else {
-            require.s.contexts[config.context] = contextObj = createContext(config);
+            _require.s.contexts[config.context] = contextObj = createContext(config);
         }
 
         return contextObj.config;
@@ -168,7 +168,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             definitionListeners: {}
         };
 
-        require.s.contexts[context.config.context] = context;
+        _require.s.contexts[context.config.context] = context;
         updateContextDefinition(context.config, "require", {name: "require", callback: {config: function(){return context.config}}});
         updateContextDefinition(context.config, "exports", {name: "exports", callback: {}});
         updateContextDefinition(context.config, "module", {name: "module", callback: {config: function() {return context.config;}}});
@@ -180,8 +180,9 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
      * Loads the scripts and executes it. Once loaded, the onload callback is executed.
      */
     function importScript(config, name, requester, onload) {
+
         if (typeof process !== "undefined") {
-            require.nodeRequire = require;
+            _require.nodeRequire = require;
             var fs = require("fs");
             var translatedPath = translatePath(name, config);
             var script = fs.readFileSync((config.baseUrl + "/" + translatedPath + ".js").replace("//", "/")).toString();
@@ -210,7 +211,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
      * If a definition is passed, it is merged, and isLoading is deleted.
      */
     function updateContextDefinition(config, name, definition) {
-        var contextDefinitions = require.s.contexts[config.context].definitions;
+        var contextDefinitions = _require.s.contexts[config.context].definitions;
 
         if (!contextDefinitions[name]) {
             contextDefinitions[name] = {
@@ -240,6 +241,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             updateContextDefinition(config, definitionTemp.name, definitionTemp);
         }
 
+
         while (definitionTemp = definitionTempQueue.pop()) {
             loadDependencyScripts(config, name, definitionTemp.dependencies, function() {
                 if (--notCompleted === 0) {
@@ -258,7 +260,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
         var name = resolvePath(currentPath, dependencyPath, config);
         var fileName = resolvePath(currentPath, pathParts[1], config);
         var pluginName = resolvePath(currentPath, pathParts[0], config);
-        var pluginObj = require.s.contexts[config.context].definitions[pluginName];
+        var pluginObj = _require.s.contexts[config.context].definitions[pluginName];
 
         // Iterate over the dependencies for the plugin and instantiate them
         loadDependencyInstances(config, currentPath, pluginObj.dependencies, function() {
@@ -311,8 +313,8 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
      * Iterates over the passed dependencies, and will load their scripts.
      */
     function loadDependencyScripts(config, currentPath, dependencies, callback) {
-        var definitions = require.s.contexts[config.context].definitions;
-        var definitionListeners = require.s.contexts[config.context].definitionListeners;
+        var definitions = _require.s.contexts[config.context].definitions;
+        var definitionListeners = _require.s.contexts[config.context].definitionListeners;
 
         var notCompleted = dependencies.length;
         if (notCompleted === 0) {
@@ -402,8 +404,8 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
 
         // This should be skipped in a build since it's pointless
         if (!config.isBuild) {
-            var definitions = require.s.contexts[config.context].definitions;
-            var instances = require.s.contexts[config.context].instances;
+            var definitions = _require.s.contexts[config.context].definitions;
+            var instances = _require.s.contexts[config.context].instances;
             var args = [];
 
             function executeDefinitionCallback(name, definition, theArguments) {
@@ -440,22 +442,25 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
 
     }
 
-    require.reset = function() {
-        require.s = {contexts:{}};
+    _require.reset = function() {
+        _require.s = {contexts:{}};
         createContext(customGlobalConfig || {})
         define.amd = true;
     }
 
+    _require.reset();
+
     if (typeof process !== "undefined" && process.versions && !!process.versions.node) {
         module.exports = {
-            require: require,
+            require: _require,
             define: define,
             merge: merge,
             translatePath: translatePath,
-            resolvePath: resolvePath
-    };
+            resolvePath: resolvePath,
+            createContext: createContext
+        };
     } else if (typeof module === 'undefined') {
-        window.require = require;
+        window.require = _require;
         window.define = define;
     }
 
