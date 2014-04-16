@@ -1,15 +1,16 @@
 var assert = chai.assert;
+var expect = chai.expect;
 
 mocha.setup('tdd');
 
 suite('require', function () {
 
-  test('Transitive dependencies', function (done) {
-    require({
-      paths: {
-        "lol": "lol"
-      }
-    }, [
+  setup(function() {
+    require.reset();
+  })
+
+  test('Dependencies with separate file dependencies', function (done) {
+    require([
       "./A",
       "./B"
     ], function (A, B) {
@@ -23,22 +24,16 @@ suite('require', function () {
     });
   });
 
-  test('test', function (done) {
-    require({
-      paths: {
-        "lol2": "lol2"
-      }
-    },[
-      "./C",
-      "./A"
-    ], function (C, A) {
-      assert.equal(C.message, "C");
-      assert.equal(A.message, "A");
+  test('Dependencies inside same file', function (done) {
+    require([
+      "nested"
+    ], function (dep1) {
+      expect(dep1.dep2.dep3).not.to.be.undefined;
       done();
     });
   });
 
-  test('Text plugin', function (done) {
+  test('Text plugin with nested dependencies', function (done) {
     require([
       "text!message.html",
       "text!message2.html"
@@ -60,7 +55,7 @@ suite('require', function () {
     });
   });
 
-  test('Package Test', function (done) {
+  test('Package Test with string syntax', function (done) {
     require({
       packages: [
         "mypackage"
@@ -75,7 +70,7 @@ suite('require', function () {
     });
   });
 
-  test('Package Test 2', function (done) {
+  test('Package Test with full syntax', function (done) {
     require({
       packages: [
         {
@@ -94,6 +89,19 @@ suite('require', function () {
     });
   });
 
+  test('Paths', function (done) {
+    require({
+      paths: {
+        "mypackage2": "mypackage2/main"
+      }
+    }, [
+      "mypackage2"
+    ], function (main) {
+      assert.equal(main.message, "main");
+      done();
+    });
+  });
+
 
   test('local require config', function (done) {
     require({
@@ -105,6 +113,47 @@ suite('require', function () {
       done();
     });
   });
+
+  test('double require', function (done) {
+    var count = 0;
+    require([
+      "A"
+    ], function (A) {
+      assert.equal(A.message, "A");
+      count++;
+      if (count == 2) done();
+    });
+
+    require([
+      "A"
+    ], function (A) {
+      assert.equal(A.message, "A");
+      count++;
+      if (count == 2) done();
+
+    });
+  });
+
+  test('nested require call', function (done) {
+    var count = 0;
+    require([
+      "A"
+    ], function (A) {
+      assert.equal(A.message, "A");
+
+      require([
+        "A", "B"
+      ], function(A, B) {
+        assert.equal(A.message, "A");
+        assert.equal(B.message, "B");
+        done();
+      })
+
+    });
+  });
+
+
+
 
 });
 

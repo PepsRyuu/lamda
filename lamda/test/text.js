@@ -8,10 +8,8 @@
   define: false, window: false, process: false, Packages: false,
   java: false, location: false */
 
-define('text', ['module'], function (module) {
-    'use strict';
-
-    var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
+define("text-nested2", ["require"], function(require) {
+     var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
         xmlRegExp = /^\s*<\?xml(\s)+version=[\'\"](\d)*.(\d)*[\'\"](\s)*\?>/im,
         bodyRegExp = /<body[^>]*>\s*([\s\S]+)\s*<\/body>/im,
         hasLocation = typeof location !== 'undefined' && location.href,
@@ -19,7 +17,7 @@ define('text', ['module'], function (module) {
         defaultHostName = hasLocation && location.hostname,
         defaultPort = hasLocation && (location.port || undefined),
         buildMap = [],
-        masterConfig = (module.config && module.config()) || {},
+        masterConfig = {},
         text, fs;
 
     text = {
@@ -302,4 +300,13 @@ define('text', ['module'], function (module) {
     }
 
     return text;
+});
+
+define("text-nested", ["text-nested2"], function(nested) {
+    return nested;
+});
+
+define('text', ["text-nested"], function (nested) {
+
+    return nested;
 });
