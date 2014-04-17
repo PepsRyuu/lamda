@@ -243,7 +243,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
 
         while (definitionTemp = definitionTempQueue.pop()) {
-            loadDependencyScripts(config, name, definitionTemp.dependencies, function() {
+            loadDependencyScripts(config, definitionTemp.name, definitionTemp.dependencies, function() {
                 if (--notCompleted === 0) {
                     callback();
                 }
