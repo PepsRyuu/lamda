@@ -1,5 +1,5 @@
 // Create the requireConfig variable if it doesn't already exist
-if (typeof process !== 'undefined' || typeof require === 'undefined') {
+if ((typeof process !== 'undefined'  && process.versions && !!process.versions.node) || typeof require === 'undefined') {
     var requireConfig = {};
 } else if (typeof require !== 'undefined') {
     var requireConfig = require;
@@ -181,7 +181,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
      */
     function importScript(config, name, requester, onload) {
 
-        if (typeof process !== "undefined") {
+        if (typeof process !== "undefined" && process.versions && !!process.versions.node) {
             _require.nodeRequire = require;
             var fs = require("fs");
             var translatedPath = translatePath(name, config);
@@ -194,7 +194,7 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
             tag.setAttribute("async", "");
             tag.setAttribute("data-context", config.context);
             tag.setAttribute("data-modulename", name);
-            tag.src = (config.baseUrl + "/" + translatePath(name, config) + ".js").replace("//", "/");
+            tag.src = ((name.indexOf("/") === 0? "./" : config.baseUrl) + "/" + translatePath(name, config) + ".js").replace("//", "/");
             tag.onerror = function(e) {
                 throw new Error("\n  Missing: " + e.target.src + "\n  Requester: " + requester);
             }
@@ -263,49 +263,60 @@ if (typeof process !== 'undefined' || typeof require === 'undefined') {
         var pluginObj = _require.s.contexts[config.context].definitions[pluginName];
 
         // Iterate over the dependencies for the plugin and instantiate them
-        loadDependencyInstances(config, currentPath, pluginObj.dependencies, function() {
-            var pluginInstance = pluginObj.callback.apply(config, arguments);
-            var localRequire = {toUrl:function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");}};
+        var args = [];
+        pluginObj.dependencies.forEach(function(dependency) {
+            var dependencyObj = _require.s.contexts[config.context].definitions[dependency];
+            if (typeof dependencyObj.callback === "function") {
+                args.push(dependencyObj.callback());
+            } else if (dependencyObj.callback) {
+                args.push(dependencyObj.callback)
+            } else {
+                args.push(dependencyObj);
+            }
+        })
 
-            var onLoad = function(content) {
-                updateContextDefinition(config, name, {callback: function() {
-                    return content;
-                }});
+        // Prepare the plugin API
+        var pluginInstance = pluginObj.callback.apply(config, args);
+        var localRequire = {toUrl:function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");}};
+
+        var onLoad = function(content) {
+            updateContextDefinition(config, name, {callback: function() {
+                return content;
+            }});
+            callback();
+        }
+
+        onLoad.fromText = function(content) {
+            updateContextDefinition(config, name, {callback: function() {
+                return eval(content);
+            }});
+            callback();
+        }
+
+        onLoad.error = function(err) {
+            throw err;
+        }
+
+        var write = function(content) {}
+
+        write.asModule = function(moduleName, moduleFilename, moduleContent) {
+            eval(moduleContent);
+            completeScriptLoad(config, resolvePath(currentPath, moduleName), function() {
                 callback();
-            }
+            });
+        }
 
-            onLoad.fromText = function(content) {
-                updateContextDefinition(config, name, {callback: function() {
-                    return eval(content);
-                }});
-                callback();
-            }
+        // Set up the context definition for this import
+        if ((config.isBuild && pluginInstance.writeFile) || !config.isBuild) {
+            updateContextDefinition(config, name);
+        }
 
-            onLoad.error = function(err) {
-                throw err;
-            }
-
-            var write = function(content) {}
-
-            write.asModule = function(moduleName, moduleFilename, moduleContent) {
-                eval(moduleContent);
-                completeScriptLoad(config, resolvePath(currentPath, moduleName), function() {
-                    callback();
-                });
-            }
-
-            // Set up the context definition for this import
-            if ((config.isBuild && pluginInstance.writeFile) || !config.isBuild) {
-                updateContextDefinition(config, name);
-            }
-
-            // Call the plugin with the API
-            if (config.isBuild && pluginInstance.writeFile) {
-                pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
-            } else if (!config.isBuild) {
-                pluginInstance.load(fileName, localRequire, onLoad, config);
-            }
-        });
+        // Call the plugin with the API
+        if (config.isBuild && pluginInstance.writeFile) {
+            pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
+        } else if (!config.isBuild) {
+            pluginInstance.load(fileName, localRequire, onLoad, config);
+        }
 
     }
 

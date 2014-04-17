@@ -33,7 +33,7 @@ suite('require', function () {
     });
   });
 
-  test('Text plugin with nested dependencies', function (done) {
+  /*test('Text plugin with nested dependencies', function (done) {
     require([
       "text!message.html",
       "text!message2.html"
@@ -42,7 +42,7 @@ suite('require', function () {
       assert.equal(message2, "Foo Bar!");
       done();
     });
-  });
+  });*/
 
   test('No Write plugin', function (done) {
     require([

@@ -42,7 +42,7 @@ exports = module.exports = function(config, outputdir, callback) {
 
     function write(module, definitions) {
         var output = "";
-        Object.keys(definitions).sort().reverse().forEach(function(defName){
+        Object.keys(definitions).reverse().forEach(function(defName){
             console.log("\t"+defName);
             var definition = definitions[defName];
             if (typeof definition === "string") {
