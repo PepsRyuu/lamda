@@ -455,6 +455,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
     _require.reset = function() {
         _require.s = {contexts:{}};
+        _require.config(customGlobalConfig);
         createContext(customGlobalConfig || {})
         define.amd = true;
     }
