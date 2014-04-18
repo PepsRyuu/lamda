@@ -96,7 +96,7 @@ exports = module.exports = function(config, outputdir, callback) {
 
 
 
-        fs.writeFileSync(outputdir + "/" + outputFile +".js", output);
+        fs.writeFileSync(outputdir + "/" + outputFile +".js", output, "utf8");
     }
 
     function optimize(module) {

@@ -185,7 +185,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             _require.nodeRequire = require;
             var fs = require("fs");
             var translatedPath = translatePath(name, config);
-            var script = fs.readFileSync((config.baseUrl + "/" + translatedPath + ".js").replace("//", "/")).toString();
+            var script = fs.readFileSync((config.baseUrl + "/" + translatedPath + ".js").replace("//", "/"), "utf8");
             eval(script);
             onload();
         } else {
@@ -194,6 +194,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             tag.setAttribute("async", "");
             tag.setAttribute("data-context", config.context);
             tag.setAttribute("data-modulename", name);
+            tag.setAttribute("charset", "utf-8");
             tag.src = ((name.indexOf("/") === 0? "./" : config.baseUrl) + "/" + translatePath(name, config) + ".js").replace("//", "/");
             tag.onerror = function(e) {
                 throw new Error("\n  Missing: " + e.target.src + "\n  Requester: " + requester);
