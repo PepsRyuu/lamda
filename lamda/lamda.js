@@ -102,7 +102,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     function translatePath(pathToTranslate, config) {
 
         function __tt(test, replacement, main) {
-            var regex = new RegExp("^("+test+")(/|$)");
+            var regex = new RegExp("^("+test+")(/|$|!)");
             var matches = pathToTranslate.match(regex);
             if (matches) {
                 return pathToTranslate.replace(regex, replacement+"$2" + (main && matches[2] === ""? "/" + main : ""))
@@ -383,27 +383,30 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 }
 
                 // If something translates to empty:, it should be skipped completely
-                var ignore = false;
-                if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
-                    ignore = true;
-                }
-
-                // Go through the different possible scenarios with resolving the dependency
-                if (pluginName && definitions[pluginName] && definitions[pluginName].isLoading) {
-                    incrementReference(pluginName);
-                } else if (pluginName && !definitions[name] && !definitions[pluginName]) {
-                    loadScript(pluginName);
-                } else if (pluginName && !definitions[name]) {
-                    finish();
-                } else if (definitions[name] && definitions[name].isLoading && !ignore) {
-                    incrementReference(name);
-                } else {
-                    if (!definitions[name] && !ignore) {
-                        loadScript(name);
-                    } else {
+                if (!config.isBuild || (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") !== 0)) {
+                    // Go through the different possible scenarios with resolving the dependency
+                    if (pluginName && definitions[pluginName] && definitions[pluginName].isLoading) {
+                        incrementReference(pluginName);
+                    } else if (pluginName && !definitions[name] && !definitions[pluginName]) {
+                        loadScript(pluginName);
+                    } else if (pluginName && !definitions[name]) {
                         finish();
+                    } else if (definitions[name] && definitions[name].isLoading) {
+                        incrementReference(name);
+                    } else {
+                        if (!definitions[name]) {
+                            loadScript(name);
+                        } else {
+                            finish();
+                        }
+                    }
+                } else {
+                    if (--notCompleted === 0) {
+                        callback();
                     }
                 }
+
+
             })(dependencies[i]);
         }
 
@@ -456,8 +459,8 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
     _require.reset = function() {
         _require.s = {contexts:{}};
-        _require.config(customGlobalConfig);
         createContext(customGlobalConfig || {})
+        _require.config(customGlobalConfig);
         define.amd = true;
     }
 
