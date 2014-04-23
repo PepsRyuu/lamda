@@ -152,8 +152,18 @@ suite('require', function () {
     });
   });
 
-
-
+  test('relative dependencies from packages', function (done) {
+    require({
+      packages: [{
+          name: 'mypackage3',
+          main: 'a'
+      }]
+    }, ['mypackage3'], function (mypackage3) {
+        assert.equal(mypackage3.b, 'b');
+        done();
+      }
+    );
+  });
 
 });
 
