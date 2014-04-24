@@ -102,6 +102,19 @@ suite('require', function () {
     });
   });
 
+  test('Plugin accessed via path', function (done) {
+    require({
+      paths: {
+        "text": "./plugins/text"
+      }
+    }, [
+      "text!./message.html"
+    ], function (message) {
+      assert.equal(message, "Hello World!");
+      done();
+    });
+  });
+
 
   test('local require config', function (done) {
     require({
@@ -152,7 +165,20 @@ suite('require', function () {
     });
   });
 
-  test('relative dependencies from packages', function (done) {
+
+  test('relative dependencies from package module', function (done) {
+    require({
+      packages: [{
+          name: 'mypackage3'
+      }]
+    }, ['mypackage3/a'], function (mypackage3) {
+        assert.equal(mypackage3.b, 'b');
+        done();
+      }
+    );
+  });
+
+  test('relative dependencies from package main', function (done) {
     require({
       packages: [{
           name: 'mypackage3',
@@ -160,6 +186,65 @@ suite('require', function () {
       }]
     }, ['mypackage3'], function (mypackage3) {
         assert.equal(mypackage3.b, 'b');
+        done();
+      }
+    );
+  });
+
+  test('packages where package main defines module name', function (done) {
+    require({
+      packages: [{
+          name: 'mypackage5',
+          main: "a"
+      }]
+    }, ['mypackage5'], function (mypackage5) {
+        assert.equal(mypackage5, 'a');
+        done();
+      }
+    );
+  });
+
+
+  test('relative dependencies from package main, with different location for package root', function (done) {
+    require({
+      packages: [{
+          name: 'mypackage4',
+          location: "./mypackage4/mypackage4",
+          main: "a"
+      }]
+    }, ['mypackage4'], function (mypackage4) {
+        assert.equal(mypackage4.b, 'b');
+        done();
+      }
+    );
+  });
+
+  test('mocks', function (done) {
+    require({
+      mocks: [
+        {name: "mymock", dependencies:["A"], callback: function(main) {return main}}
+      ]
+    }, ['mymock'], function (mymock) {
+        assert.equal(mymock.message, "A");
+        assert.equal(mymock.AA.message, "AA");
+        assert.equal(mymock.AB.message, "AB");
+        assert.equal(mymock.AA.AAA.message, "AAA");
+        done();
+      }
+    );
+  });
+
+  test('mock accessed via packages depending on another mock', function (done) {
+    require({
+      mocks: [
+        {name: "mymock/MySecondMock", callback: {message: "MySecondMock"}},
+        {name: "mymock/MyMock", dependencies:["./MySecondMock"], callback: function(main) {return main}}
+      ],
+      packages: [
+        {name: "mymock", main: "MyMock"}
+      ]
+    }, ['mymock'], function (mymock) {
+        assert.equal(mymock.message, "MySecondMock");
         done();
       }
     );

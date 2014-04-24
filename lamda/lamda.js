@@ -101,11 +101,11 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
      */
     function translatePath(pathToTranslate, config) {
 
-        function __tt(test, replacement, main) {
-            var regex = new RegExp("^("+test+")(/|$|!)");
+        function __tt(test, replacement) {
+            var regex = new RegExp("^("+test+")(/.*|$|!)");
             var matches = pathToTranslate.match(regex);
             if (matches) {
-                return pathToTranslate.replace(regex, replacement+"$2" + (main && matches[2] === ""? "/" + main : ""))
+                return pathToTranslate.replace(regex, replacement+"$2");
             }
         }
 
@@ -118,7 +118,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         if (config.packages !== undefined) {
             for (var i = 0; i < config.packages.length; i++) {
                 var packageObj = config.packages[i];
-                var result = __tt(packageObj.name, packageObj.location, packageObj.main);
+                var result = __tt(packageObj.name, packageObj.location);
                 if (result) return result;
             }
         }
@@ -131,7 +131,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
      * If the target path does not start with ../ or ./, it's assumed to be relative to root.
      * A translation using the paths require configuration is also done, so a real url is returned.
      */
-    function resolvePath(currentPath, targetPath) {
+    function resolvePath(currentPath, targetPath, config) {
         currentPath = currentPath == ""? "" : currentPath.substring(0, currentPath.lastIndexOf("/"));
         var resultPath;
 
@@ -154,6 +154,15 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             }
             resultPath = currentPathParts.join("/");
         } else {
+            if (config.packages) {
+                for (var i = 0; i < config.packages.length; i++) {
+                    var packageObj = config.packages[i];
+                    if (targetPath === packageObj.name) {
+                        targetPath = packageObj.name + "/" + packageObj.main;
+                        break;
+                    }
+                }
+            }
             resultPath = targetPath;
         }
 
@@ -180,6 +189,17 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
      * Loads the scripts and executes it. Once loaded, the onload callback is executed.
      */
     function importScript(config, name, requester, onload) {
+
+        if (config.mocks) {
+            for (var i = 0; i < config.mocks.length; i++) {
+                var mock = config.mocks[i];
+                if (name === mock.name) {
+                    define(mock.name, mock.dependencies || [], mock.callback);
+                    onload();
+                    return;
+                }
+            }
+        }
 
         if (typeof process !== "undefined" && process.versions && !!process.versions.node) {
             _require.nodeRequire = require;
@@ -302,7 +322,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
         write.asModule = function(moduleName, moduleFilename, moduleContent) {
             eval(moduleContent);
-            completeScriptLoad(config, resolvePath(currentPath, moduleName), function() {
+            completeScriptLoad(config, resolvePath(currentPath, moduleName, config), function() {
                 callback();
             });
         }
@@ -436,7 +456,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 var name = resolvePath(currentPath, dependencyPath, config);
 
                 if (!instances[name]) {
-                    var definition = definitions[name];
+                    var definition = definitions[dependencyPath] || definitions[name];
                     if (definition.dependencies) {
                         loadDependencyInstances(config, name, definition.dependencies, function() {
                             executeDefinitionCallback(name, definition, arguments);
