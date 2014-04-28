@@ -6,8 +6,26 @@ mocha.setup('tdd');
 suite('require', function () {
 
   setup(function() {
-    require.reset();
+      require.reset();
   })
+
+  test('Plugin accessed via package', function (done) {
+    require({
+      packages: [
+        {
+            name: "pluginwithmain",
+            location: "pluginwithmain",
+            main: "main"
+        }
+      ]
+    }, [
+      "pluginwithmain!./message.html"
+    ], function (message) {
+      assert.equal(message, "Hello World!");
+      done();
+    });
+  });
+
 
   test('Dependencies with separate file dependencies', function (done) {
     require([
@@ -114,6 +132,7 @@ suite('require', function () {
       done();
     });
   });
+
 
 
   test('local require config', function (done) {

@@ -126,6 +126,20 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         return pathToTranslate;
     }
 
+    function checkIfPackageAndGetMain(name, config) {
+        var target = name;
+        if (config.packages) {
+            for (var i = 0; i < config.packages.length; i++) {
+                var packageObj = config.packages[i];
+                if (target === packageObj.name) {
+                    target = packageObj.name + "/" + packageObj.main;
+                    break;
+                }
+            }
+        }
+        return target;
+    }
+
     /**
      * Takes the current module path, and the target path (dependency) and resolves it relatively.
      * If the target path does not start with ../ or ./, it's assumed to be relative to root.
@@ -154,16 +168,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             }
             resultPath = currentPathParts.join("/");
         } else {
-            if (config.packages) {
-                for (var i = 0; i < config.packages.length; i++) {
-                    var packageObj = config.packages[i];
-                    if (targetPath === packageObj.name) {
-                        targetPath = packageObj.name + "/" + packageObj.main;
-                        break;
-                    }
-                }
-            }
-            resultPath = targetPath;
+            resultPath = checkIfPackageAndGetMain(targetPath, config);
         }
 
         return prefix + resultPath;
@@ -258,7 +263,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
         for (var i = 0; i < definitionTempQueue.length; i++) {
             definitionTemp = definitionTempQueue[i];
-            definitionTemp.name = definitionTemp.name || name;
+            definitionTemp.name = checkIfPackageAndGetMain(definitionTemp.name || name, config);
             updateContextDefinition(config, definitionTemp.name, definitionTemp);
         }
 
@@ -281,7 +286,8 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         var name = resolvePath(currentPath, dependencyPath, config);
         var fileName = resolvePath(currentPath, pathParts[1], config);
         var pluginName = resolvePath(currentPath, pathParts[0], config);
-        var pluginObj = _require.s.contexts[config.context].definitions[pluginName];
+        var definitions = _require.s.contexts[config.context].definitions;
+        var pluginObj = definitions[pluginName];
 
         // Iterate over the dependencies for the plugin and instantiate them
         var args = [];
@@ -456,7 +462,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 var name = resolvePath(currentPath, dependencyPath, config);
 
                 if (!instances[name]) {
-                    var definition = definitions[dependencyPath] || definitions[name];
+                    var definition = definitions[name];
                     if (definition.dependencies) {
                         loadDependencyInstances(config, name, definition.dependencies, function() {
                             executeDefinitionCallback(name, definition, arguments);

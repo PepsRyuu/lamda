@@ -16,12 +16,13 @@ exports = module.exports = function(config, outputdir, callback) {
         if (dependencies) {
             for (var i = 0; i < dependencies.length; i++) {
                 var fullDependencyName = lamda.resolvePath(module, dependencies[i], config);
-                if (definitions[fullDependencyName]) {
-                   definitions[fullDependencyName].referenceCount--;
-                    decreaseDependencyReferenceCounts(config, fullDependencyName, definitions[fullDependencyName].dependencies);
+                var definition = definitions[fullDependencyName]
+                if (definition) {
+                    definition.referenceCount--;
+                    decreaseDependencyReferenceCounts(config, definition.name, definition.dependencies);
 
-                    if (definitions[fullDependencyName].referenceCount === 0) {
-                        delete definitions[fullDependencyName];
+                    if (definition.referenceCount === 0) {
+                        delete definition;
                     }
                 }
             }
