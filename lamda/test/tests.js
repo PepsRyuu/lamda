@@ -9,6 +9,20 @@ suite('require', function () {
       require.reset();
   })
 
+  test('Exact path takes precedent over other paths', function (done) {
+    require({
+      paths: {
+        "somepath": "A",
+        "somepath/somepath": "C"
+      }
+    }, [
+      "somepath/somepath"
+    ], function (C) {
+      assert.equal(C.message, "C");
+      done();
+    });
+  });
+
   test('Plugin accessed via package', function (done) {
     require({
       packages: [
@@ -119,6 +133,8 @@ suite('require', function () {
       done();
     });
   });
+
+
 
   test('Plugin accessed via path', function (done) {
     require({

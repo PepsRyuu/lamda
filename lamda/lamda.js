@@ -110,6 +110,9 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         }
 
         if (config.paths !== undefined) {
+            if (config.paths[pathToTranslate]) {
+                return __tt(pathToTranslate, config.paths[pathToTranslate]);
+            }
             for (var path in config.paths) {
                 var result = __tt(path, config.paths[path]);
                 if (result) return result;
