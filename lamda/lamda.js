@@ -182,7 +182,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             config: merge({baseUrl: "./", context: "_"}, config),
             instances: {},
             definitions: {},
-            definitionListeners: {}
+            listeners: {}
         };
 
         _require.s.contexts[context.config.context] = context;
@@ -355,7 +355,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
      */
     function loadDependencyScripts(config, currentPath, dependencies, callback) {
         var definitions = _require.s.contexts[config.context].definitions;
-        var definitionListeners = _require.s.contexts[config.context].definitionListeners;
+        var listeners = _require.s.contexts[config.context].listeners;
 
         var notCompleted = dependencies.length;
         if (notCompleted === 0) {
@@ -364,77 +364,66 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
         for (var i = 0; i < dependencies.length; i++) {
             (function(dependencyPath) {
-                var pluginName;
-                var name = resolvePath(currentPath, dependencyPath, config);
+
+                // Parse the name into a plugin and into the full name (which includes plugin prefix)
                 var prefixIndex = dependencyPath.indexOf("!");
+                var pluginName = prefixIndex > -1? resolvePath(currentPath, dependencyPath.substring(0, prefixIndex), config) : undefined;
+                var fullName = resolvePath(currentPath, dependencyPath, config);
 
-                // If plugin has been detected, translate it's name
-                if (prefixIndex > -1) {
-                    pluginName = resolvePath(currentPath, dependencyPath.substring(0, prefixIndex), config);
+                // When all dependencies have been loaded, call the callback
+                var finish = function() {
+                    --notCompleted === 0 && callback();
                 }
 
-                // Called whenever a script has finished loading
-                var finish =  function() {
-                    if (prefixIndex > -1 && !definitions[name]) {
-                        callPlugin(config, currentPath, dependencyPath, function() {
-                            if (--notCompleted === 0) {
-                                callback();
-                            }
+                // Activated when a script has loaded
+                var triggerListeners = function(name) {
+                    if (listeners[name]) {
+                        listeners[name].forEach(function(listener) {
+                            listener();
                         });
-                    } else if (--notCompleted === 0) {
-                        callback();
+                        delete listeners[name];
                     }
                 }
 
-                // Increases the reference count and adds finish as a listener
-                var incrementReference = function(name) {
+                var triggerPlugin = function() {
+                    callPlugin(config, currentPath, dependencyPath, function() {
+                        triggerListeners(fullName);
+                        finish();
+                    });
+                }
+
+                var addListener = function(name, fn) {
                     definitions[name].referenceCount++;
-                    if (!definitionListeners[name]) {
-                        definitionListeners[name] = [];
-                    }
-                    definitionListeners[name].push(finish);
+                    !listeners[name] && (listeners[name] = []);
+                    listeners[name].push(fn);
                 }
 
-                // Imports the scripts and calls all of the listeners
-                var loadScript = function(name) {
+                var loadScript = function(name, fn) {
                     updateContextDefinition(config, name);
                     importScript(config, name, currentPath, function() {
                         completeScriptLoad(config, name, function() {
-                            finish();
-                            if (definitionListeners[name]) {
-                                definitionListeners[name].forEach(function(listener) {
-                                    listener();
-                                });
-                                delete definitionListeners[name];
-                            }
+                            triggerListeners(name);
+                            fn();
                         });
                     });
                 }
 
-                // If something translates to empty:, it should be skipped completely
-                if (!config.isBuild || (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") !== 0)) {
-                    // Go through the different possible scenarios with resolving the dependency
-                    if (pluginName && definitions[pluginName] && definitions[pluginName].isLoading) {
-                        incrementReference(pluginName);
-                    } else if (pluginName && !definitions[name] && !definitions[pluginName]) {
-                        loadScript(pluginName);
-                    } else if (pluginName && !definitions[name]) {
-                        finish();
-                    } else if (definitions[name] && definitions[name].isLoading) {
-                        incrementReference(name);
-                    } else {
-                        if (!definitions[name]) {
-                            loadScript(name);
-                        } else {
-                            finish();
-                        }
-                    }
+                // Ignore anything that translates to empty
+                if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") !== 0) {
+                    finish();
+                } else if (pluginName && definitions[pluginName] && definitions[pluginName].isLoading) {
+                    addListener(pluginName, triggerPlugin);
+                } else if (pluginName && !definitions[fullName] && !definitions[pluginName]) {
+                    loadScript(pluginName, triggerPlugin);
+                } else if (pluginName && !definitions[fullName]) {
+                    triggerPlugin(fullName);
+                } else if (definitions[fullName] && definitions[fullName].isLoading) {
+                    addListener(fullName, finish);
+                } else if (!definitions[fullName]) {
+                    loadScript(fullName, finish);
                 } else {
-                    if (--notCompleted === 0) {
-                        callback();
-                    }
+                    finish();
                 }
-
 
             })(dependencies[i]);
         }

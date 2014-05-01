@@ -65,16 +65,33 @@ suite('require', function () {
     });
   });
 
-  /*test('Text plugin with nested dependencies', function (done) {
+  test('Same dependency asked for twice', function (done) {
     require([
-      "text!message.html",
-      "text!message2.html"
-    ], function (message, message2) {
-      assert.equal(message, "Hello World!");
-      assert.equal(message2, "Foo Bar!");
+      "./A",
+      "./A"
+    ], function (A1, A2) {
+      assert.equal(A1.message, "A");
+      assert.equal(A2.message, "A");
+      assert.equal(A1.AA.message, "AA");
+      assert.equal(A1.AB.message, "AB");
+      assert.equal(A1.AA.AAA.message, "AAA");
+      assert.equal(A2.AA.message, "AA");
+      assert.equal(A2.AB.message, "AB");
+      assert.equal(A2.AA.AAA.message, "AAA");
       done();
     });
-  });*/
+  });
+
+  test('Same plugin dependency asked for twice', function (done) {
+    require([
+      "text!message.html",
+      "text!message.html"
+    ], function (message, message2) {
+      assert.equal(message, "Hello World!");
+      assert.equal(message2, "Hello World!");
+      done();
+    });
+  });
 
   test('No Write plugin', function (done) {
     require([

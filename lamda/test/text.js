@@ -8,7 +8,7 @@
   define: false, window: false, process: false, Packages: false,
   java: false, location: false */
 
-define("text-nested2", ["require"], function(require) {
+define("text-nested", ["require"], function(require) {
      var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
         xmlRegExp = /^\s*<\?xml(\s)+version=[\'\"](\d)*.(\d)*[\'\"](\s)*\?>/im,
         bodyRegExp = /<body[^>]*>\s*([\s\S]+)\s*<\/body>/im,
@@ -300,10 +300,6 @@ define("text-nested2", ["require"], function(require) {
     }
 
     return text;
-});
-
-define("text-nested", ["text-nested2"], function(nested) {
-    return nested;
 });
 
 define('text', ["text-nested"], function (nested) {
