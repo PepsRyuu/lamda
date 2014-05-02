@@ -409,7 +409,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 }
 
                 // Ignore anything that translates to empty
-                if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") !== 0) {
+                if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
                     finish();
                 } else if (pluginName && definitions[pluginName] && definitions[pluginName].isLoading) {
                     addListener(pluginName, triggerPlugin);
