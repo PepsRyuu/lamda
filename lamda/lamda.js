@@ -411,7 +411,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 // Ignore anything that translates to empty
                 if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
                     finish();
-                } else if (pluginName && definitions[pluginName] && definitions[pluginName].isLoading) {
+                } else if (pluginName && !definitions[fullName] && definitions[pluginName] && definitions[pluginName].isLoading) {
                     addListener(pluginName, triggerPlugin);
                 } else if (pluginName && !definitions[fullName] && !definitions[pluginName]) {
                     loadScript(pluginName, triggerPlugin);
