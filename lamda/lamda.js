@@ -12,20 +12,20 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     /**
      *
      */
-    function _require(arg1, arg2, arg3) {
+    function _require(arg1, arg2, arg3, arg4) {
         // Figure out what the arguments are
-        var config, dependencies, callback;
+        var config, dependencies, callback, errorback;
         if (!(arg1 instanceof Array)) {
-            config = arg1, dependencies = arg2, callback = arg3;
+            config = arg1, dependencies = arg2, callback = arg3, errorback = arg4;
         } else {
-            dependencies = arg1, callback = arg2;
+            dependencies = arg1, callback = arg2, errorback = arg3;
         }
 
         config = config? _require.config(config) : _require.s.contexts["_"].config;
 
         // Handle all of the defines before this require call, and then load scripts
-        completeScriptLoad(config, "", function() {
-            loadDependencyScripts(config, "", dependencies, function() {
+        completeScriptLoad(config, "", errorback, function() {
+            loadDependencyScripts(config, "", dependencies, errorback, function() {
                 loadDependencyInstances(config, "",dependencies, callback);
             });
         });
@@ -196,7 +196,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     /**
      * Loads the scripts and executes it. Once loaded, the onload callback is executed.
      */
-    function importScript(config, name, requester, onload) {
+    function importScript(config, name, requester, errorback, onload) {
 
         if (config.mocks) {
             for (var i = 0; i < config.mocks.length; i++) {
@@ -225,7 +225,11 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             tag.setAttribute("charset", "utf-8");
             tag.src = ((name.indexOf("/") === 0? "./" : config.baseUrl) + "/" + translatePath(name, config) + ".js").replace("//", "/");
             tag.onerror = function(e) {
-                throw new Error("\n  Missing: " + e.target.src + "\n  Requester: " + requester);
+                if (errorback) {
+                    errorback(e);
+                } else {
+                    throw new Error("\n  Missing: " + e.target.src + "\n  Requester: " + requester);
+                }
             }
             tag.onload = onload;
 
@@ -258,7 +262,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     /**
      * Executed after a script has loaded. Iterates over the dependency queue and loads their dependencies.
      */
-    function completeScriptLoad(config, name, callback) {
+    function completeScriptLoad(config, name, errorback, callback) {
         var definitionTemp, notCompleted = definitionTempQueue.length;
         if (notCompleted === 0) {
             callback();
@@ -272,7 +276,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
 
         while (definitionTemp = definitionTempQueue.pop()) {
-            loadDependencyScripts(config, definitionTemp.name, definitionTemp.dependencies, function() {
+            loadDependencyScripts(config, definitionTemp.name, definitionTemp.dependencies, errorback, function() {
                 if (--notCompleted === 0) {
                     callback();
                 }
@@ -283,7 +287,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     /**
      * Executes the plugin. Mimics require.js plugin structure.
      */
-    function callPlugin(config, currentPath, dependencyPath, callback) {
+    function callPlugin(config, currentPath, dependencyPath, errorback, callback) {
         // Get the full names
         var pathParts = dependencyPath.split("!");
         var name = resolvePath(currentPath, dependencyPath, config);
@@ -324,14 +328,18 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         }
 
         onLoad.error = function(err) {
-            throw err;
+            if (errorback) {
+                errorback(err);
+            } else {
+                throw err;
+            }
         }
 
         var write = function(content) {}
 
         write.asModule = function(moduleName, moduleFilename, moduleContent) {
             eval(moduleContent);
-            completeScriptLoad(config, resolvePath(currentPath, moduleName, config), function() {
+            completeScriptLoad(config, resolvePath(currentPath, moduleName, config), errorback, function() {
                 callback();
             });
         }
@@ -353,7 +361,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     /**
      * Iterates over the passed dependencies, and will load their scripts.
      */
-    function loadDependencyScripts(config, currentPath, dependencies, callback) {
+    function loadDependencyScripts(config, currentPath, dependencies, errorback, callback) {
         var definitions = _require.s.contexts[config.context].definitions;
         var listeners = _require.s.contexts[config.context].listeners;
 
@@ -386,7 +394,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 }
 
                 var triggerPlugin = function() {
-                    callPlugin(config, currentPath, dependencyPath, function() {
+                    callPlugin(config, currentPath, dependencyPath, errorback, function() {
                         triggerListeners(fullName);
                         finish();
                     });
@@ -400,8 +408,8 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
                 var loadScript = function(name, fn) {
                     updateContextDefinition(config, name);
-                    importScript(config, name, currentPath, function() {
-                        completeScriptLoad(config, name, function() {
+                    importScript(config, name, currentPath, errorback, function() {
+                        completeScriptLoad(config, name, errorback, function() {
                             triggerListeners(name);
                             fn();
                         });

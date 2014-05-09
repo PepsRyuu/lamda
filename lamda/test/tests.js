@@ -302,5 +302,21 @@ suite('require', function () {
     );
   });
 
+  test('error callback triggers when module isn\'t found', function (done) {
+    require(['missingmodule'], function (missingmodule) {
+        throw new Error("Should not hit here");
+    }, function(err) {
+      done();
+    });
+  });
+
+  test('error callback triggers when plugin can\'t find file', function (done) {
+    require(['text!missingdependency.html'], function (missingmodule) {
+        throw new Error("Should not hit here");
+    }, function(err) {
+      done();
+    });
+  });
+
 });
 

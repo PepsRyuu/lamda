@@ -4,6 +4,7 @@ exports = module.exports = function(config, outputdir, callback) {
     var fs = require("fs");
     var UglifyJS = require("uglify-js");
     var lamda = require("lamda");
+    var uneval = require("uneval");
     var currentModule;
 
     GLOBAL.define = lamda.define;
@@ -72,7 +73,7 @@ exports = module.exports = function(config, outputdir, callback) {
             if (definition.callback && typeof definition.callback === "function") {
                 output += "," + definition.callback.toString();
             } else if (definition.callback && typeof definition.callback === "object") {
-                output += "," + JSON.stringify(definition.callback);
+                output += "," + uneval(definition.callback, []);
             }
             output += ");\n\n";
         });
