@@ -263,19 +263,20 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
      * Executed after a script has loaded. Iterates over the dependency queue and loads their dependencies.
      */
     function completeScriptLoad(config, name, errorback, callback) {
-        var definitionTemp, notCompleted = definitionTempQueue.length;
+        var definitionTemp, notCompleted = definitionTempQueue.length, queue = definitionTempQueue.slice();
+        definitionTempQueue = [];
         if (notCompleted === 0) {
             callback();
         }
 
-        for (var i = 0; i < definitionTempQueue.length; i++) {
-            definitionTemp = definitionTempQueue[i];
+        for (var i = 0; i < queue.length; i++) {
+            definitionTemp = queue[i];
             definitionTemp.name = checkIfPackageAndGetMain(definitionTemp.name || name, config);
             updateContextDefinition(config, definitionTemp.name, definitionTemp);
         }
 
 
-        while (definitionTemp = definitionTempQueue.pop()) {
+        while (definitionTemp = queue.pop()) {
             loadDependencyScripts(config, definitionTemp.name, definitionTemp.dependencies, errorback, function() {
                 if (--notCompleted === 0) {
                     callback();
@@ -311,7 +312,10 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
         // Prepare the plugin API
         var pluginInstance = pluginObj.callback.apply(config, args);
-        var localRequire = {toUrl:function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");}};
+        var localRequire = function(dependencies, callback) {
+            require(config, dependencies, callback);
+        }
+        localRequire.toUrl = function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");};
 
         var onLoad = function(content) {
             updateContextDefinition(config, name, {callback: function() {

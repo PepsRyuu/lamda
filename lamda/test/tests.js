@@ -318,5 +318,12 @@ suite('require', function () {
     });
   });
 
+  test('a plugin which does a require call won\' fail', function (done) {
+    require(['pluginwithrequire!./pluginwithrequirefile'], function (pluginwithrequirefile) {
+        assert.equal(pluginwithrequirefile, "pluginwithrequirefile");
+        done();
+    });
+  });
+
 });
 
