@@ -79,12 +79,8 @@ exports = module.exports = function(config, outputdir, callback) {
         });
 
         var outputFile = module.name;
-        if (config.packages) {
-            for (var i = 0; i < config.packages.length; i++) {
-                if (config.packages[i].name === module.name) {
-                    outputFile += "/main";
-                }
-            }
+        if (module.isMain) {
+            outputFile += "/main";
         }
 
         recursiveMkdir(outputdir + "/" + outputFile.substring(0, outputFile.lastIndexOf("/")));
