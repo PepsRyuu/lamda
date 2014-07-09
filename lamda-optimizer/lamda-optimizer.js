@@ -44,9 +44,12 @@ exports = module.exports = function(config, outputdir, callback) {
 
     function write(module, definitions) {
         var output = "";
+        var licenses = [];
+
         Object.keys(definitions).reverse().forEach(function(defName){
             console.log("\t"+defName);
             var definition = definitions[defName];
+
             if (typeof definition === "string") {
                 output += definition;
                 return;
@@ -55,6 +58,10 @@ exports = module.exports = function(config, outputdir, callback) {
             if (definition.name === undefined) {
                 console.log("ERROR: " + defName + " is undefined.\n Confirm file is wrapped as an AMD module and that any defined name matches the file name.");
                 process.exit(1);
+            }
+
+            if (definition.licenses) {
+                licenses = licenses.concat(definition.licenses);
             }
 
             output += "define('"+definition.name+"',";
@@ -88,9 +95,15 @@ exports = module.exports = function(config, outputdir, callback) {
             output = UglifyJS.minify(output, {fromString: true}).code;
         }
 
+        if (licenses.length > 0) {
+            output = licenses.join("\n") + "\n" + output;
+        }
+
         if (config.header) {
             output = config.header + "\n" + output;
         }
+
+
 
 
 

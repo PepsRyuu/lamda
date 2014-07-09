@@ -214,6 +214,14 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             var fs = require("fs");
             var translatedPath = translatePath(name, config);
             var script = fs.readFileSync((config.baseUrl + "/" + translatedPath + ".js").replace("//", "/"), "utf8");
+
+            if (config.isBuild) {
+                var matches = script.match(/\/\*\![\s\S]+?\*\//g); //license
+                if (matches) {
+                    _require.s.contexts[config.context].definitions[name].licenses = matches;
+                }
+            }
+
             eval(script);
             onload();
         } else {
