@@ -17,12 +17,14 @@ exports = module.exports = function(config, outputdir, callback) {
         if (dependencies) {
             for (var i = 0; i < dependencies.length; i++) {
                 var fullDependencyName = lamda.resolvePath(module, dependencies[i], config);
+
                 var definition = definitions[fullDependencyName];
                 if (definition) {
+
                     definition.referenceCount--;
                     decreaseDependencyReferenceCounts(config, definition.name, definition.dependencies);
 
-                    if (definition.referenceCount === 0) {
+                    if (definition.referenceCount <= 0) {
                         delete definitions[fullDependencyName];
                     }
                 }
@@ -50,39 +52,45 @@ exports = module.exports = function(config, outputdir, callback) {
             console.log("\t"+defName);
             var definition = definitions[defName];
 
-            if (typeof definition === "string") {
-                output += definition;
-                return;
-            }
-
-            if (definition.name === undefined) {
-                console.log("ERROR: " + defName + " is undefined.\n Confirm file is wrapped as an AMD module and that any defined name matches the file name.");
-                process.exit(1);
-            }
-
-            if (definition.licenses) {
-                licenses = licenses.concat(definition.licenses);
-            }
-
-            output += "define('"+definition.name+"',";
-            if (definition.dependencies) {
-                var dependencies = definition.dependencies;
-                output += "[";
-                for (var i = 0; i < dependencies.length; i++) {
-                    output += "'"+dependencies[i]+"'";
-                    if (i !== dependencies.length - 1) {
-                        output += ",";
-                    }
+            if (definition.output) {
+                output += definition.output;
+            } else {
+                if (typeof definition === "string") {
+                    output += definition;
+                    return;
                 }
-                output += "]";
+
+                if (definition.name === undefined) {
+                    console.log("ERROR: " + defName + " is undefined.\n Confirm file is wrapped as an AMD module and that any defined name matches the file name.");
+                    process.exit(1);
+                }
+
+                if (definition.licenses) {
+                    licenses = licenses.concat(definition.licenses);
+                }
+
+                output += "define('"+definition.name+"',";
+                if (definition.dependencies) {
+                    var dependencies = definition.dependencies;
+                    output += "[";
+                    for (var i = 0; i < dependencies.length; i++) {
+                        output += "'"+dependencies[i]+"'";
+                        if (i !== dependencies.length - 1) {
+                            output += ",";
+                        }
+                    }
+                    output += "]";
+                }
+
+                if (definition.callback && typeof definition.callback === "function") {
+                    output += "," + definition.callback.toString();
+                } else if (definition.callback && typeof definition.callback === "object") {
+                    output += "," + uneval(definition.callback, []);
+                }
+                output += ");\n\n";
             }
 
-            if (definition.callback && typeof definition.callback === "function") {
-                output += "," + definition.callback.toString();
-            } else if (definition.callback && typeof definition.callback === "object") {
-                output += "," + uneval(definition.callback, []);
-            }
-            output += ");\n\n";
+            
         });
 
         var outputFile = module.name;
@@ -139,6 +147,7 @@ exports = module.exports = function(config, outputdir, callback) {
         lamda.require(localConfig, [module.location])
 
         excludeDefinitions(localConfig, lamda.require.s.contexts[module.name].definitions);
+
         write(module, lamda.require.s.contexts[module.name].definitions);
         console.log("\n");
     }

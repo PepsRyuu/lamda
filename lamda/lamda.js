@@ -186,9 +186,9 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         };
 
         _require.s.contexts[context.config.context] = context;
-        updateContextDefinition(context.config, "require", {name: "require", callback: {config: function(){return context.config}}});
-        updateContextDefinition(context.config, "exports", {name: "exports", callback: {}});
-        updateContextDefinition(context.config, "module", {name: "module", callback: {config: function() {return context.config;}}});
+        updateContextDefinition(context.config, "require", {name: "require", callback: {config: function(){return context.config}}}, false);
+        updateContextDefinition(context.config, "exports", {name: "exports", callback: {}}, false);
+        updateContextDefinition(context.config, "module", {name: "module", callback: {config: function() {return context.config;}}}, false);
 
         return context;
     }
@@ -214,14 +214,6 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             var fs = require("fs");
             var translatedPath = translatePath(name, config);
             var script = fs.readFileSync((config.baseUrl + "/" + translatedPath + ".js").replace("//", "/"), "utf8");
-
-            if (config.isBuild) {
-                var matches = script.match(/\/\*\![\s\S]+?\*\//g); //license
-                if (matches) {
-                    _require.s.contexts[config.context].definitions[name].licenses = matches;
-                }
-            }
-
             eval(script);
             onload();
         } else {
@@ -251,30 +243,30 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
      * If the definition doesn't exist, one is created with referenceCount and isLoading.
      * If a definition is passed, it is merged, and isLoading is deleted.
      */
-    function updateContextDefinition(config, name, definition) {
+    function updateContextDefinition(config, name, definition, isLoading) {
         var contextDefinitions = _require.s.contexts[config.context].definitions;
 
         if (!contextDefinitions[name]) {
             contextDefinitions[name] = {
-                referenceCount: 1,
-                isLoading: true
+                referenceCount: 0,
+                isLoading: isLoading !== undefined? isLoading : true
             }
         }
 
         if (definition) {
-            contextDefinitions[name] = merge(definition, contextDefinitions[name]);
-            delete contextDefinitions[name].isLoading;
+           contextDefinitions[name] = merge(definition, contextDefinitions[name]);
         }
     }
 
     /**
      * Executed after a script has loaded. Iterates over the dependency queue and loads their dependencies.
      */
-    function completeScriptLoad(config, name, errorback, callback) {
+    function completeScriptLoad(config, name, errorback, callback, ignoreDependencies) {
         var definitionTemp, notCompleted = definitionTempQueue.length, queue = definitionTempQueue.slice();
         definitionTempQueue = [];
+
         if (notCompleted === 0) {
-            callback();
+            return callback();
         }
 
         for (var i = 0; i < queue.length; i++) {
@@ -285,11 +277,17 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
 
         while (definitionTemp = queue.pop()) {
-            loadDependencyScripts(config, definitionTemp.name, definitionTemp.dependencies, errorback, function() {
-                if (--notCompleted === 0) {
-                    callback();
-                }
-            });
+            (function(localDef) {
+                loadDependencyScripts(config, localDef.name, localDef.dependencies, errorback, function() {
+                    _require.s.contexts[config.context].definitions[localDef.name].isLoading = false;
+                    triggerListeners(localDef.name, config);
+
+                    if (--notCompleted === 0) {
+                        callback();
+                    }
+                }, ignoreDependencies);
+            })(definitionTemp)
+
         }
     }
 
@@ -321,21 +319,21 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         // Prepare the plugin API
         var pluginInstance = pluginObj.callback.apply(config, args);
         var localRequire = function(dependencies, callback) {
-            require(config, dependencies, callback);
+            _require({context: config.context}, dependencies, callback);
         }
         localRequire.toUrl = function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");};
 
         var onLoad = function(content) {
-            updateContextDefinition(config, name, {callback: function() {
+            define(name, [], function() {
                 return content;
-            }});
+            })
             callback();
         }
 
         onLoad.fromText = function(content) {
-            updateContextDefinition(config, name, {callback: function() {
+            define(name, [], function() {
                 return eval(content);
-            }});
+            })
             callback();
         }
 
@@ -350,16 +348,9 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         var write = function(content) {}
 
         write.asModule = function(moduleName, moduleFilename, moduleContent) {
-            eval(moduleContent);
-            completeScriptLoad(config, resolvePath(currentPath, moduleName, config), errorback, function() {
-                callback();
-            });
+            callback(moduleContent);
         }
 
-        // Set up the context definition for this import
-        if ((config.isBuild && pluginInstance.writeFile) || !config.isBuild) {
-            updateContextDefinition(config, name);
-        }
 
         // Call the plugin with the API
         if (config.isBuild && pluginInstance.writeFile) {
@@ -370,15 +361,27 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
     }
 
+    // Activated when a script has loaded
+    var triggerListeners = function(name, config) {
+        var listeners = _require.s.contexts[config.context].listeners;
+        if (listeners[name]) {
+            listeners[name].forEach(function(listener) {
+                listener();
+            });
+            delete listeners[name];
+        }
+    }
+
     /**
      * Iterates over the passed dependencies, and will load their scripts.
      */
-    function loadDependencyScripts(config, currentPath, dependencies, errorback, callback) {
+    function loadDependencyScripts(config, currentPath, dependencies, errorback, callback, ignoreDependencies) {
+
         var definitions = _require.s.contexts[config.context].definitions;
         var listeners = _require.s.contexts[config.context].listeners;
 
         var notCompleted = dependencies.length;
-        if (notCompleted === 0) {
+        if (notCompleted === 0 || ignoreDependencies) {
             return callback();
         }
 
@@ -391,29 +394,46 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 var fullName = resolvePath(currentPath, dependencyPath, config);
 
                 // When all dependencies have been loaded, call the callback
-                var finish = function() {
-                    --notCompleted === 0 && callback();
-                }
-
-                // Activated when a script has loaded
-                var triggerListeners = function(name) {
-                    if (listeners[name]) {
-                        listeners[name].forEach(function(listener) {
-                            listener();
-                        });
-                        delete listeners[name];
+                var increaseReferenceCount = function(name) {
+                    if (definitions[name]) {
+                        if (definitions[name].dependencies) {
+                            definitions[name].dependencies.forEach(function(dep) {
+                                var depName = resolvePath(name, dep, config);
+                                if (definitions[depName]) {
+                                    definitions[resolvePath(name, dep, config)].referenceCount++;
+                                }
+                            });
+                        }
+                        
                     }
                 }
 
+
+                var finish = function() {
+                    increaseReferenceCount(fullName);
+                    --notCompleted === 0 && callback();
+                }
+
                 var triggerPlugin = function() {
-                    callPlugin(config, currentPath, dependencyPath, errorback, function() {
-                        triggerListeners(fullName);
-                        finish();
+                    callPlugin(config, currentPath, dependencyPath, errorback, function(writeContent) {
+                        if (config.isBuild && writeContent) {
+                            updateContextDefinition(config, fullName, {
+                                name: fullName,
+                                referenceCount: 1,
+                                output: writeContent.replace("define(", "define('"+fullName+"',")
+                            }, false);
+                            finish();
+                        } else {
+                            completeScriptLoad(config, fullName, errorback, function() {
+                                finish();
+                            }, true);                        
+                        }
+
+                        
                     });
                 }
 
                 var addListener = function(name, fn) {
-                    definitions[name].referenceCount++;
                     !listeners[name] && (listeners[name] = []);
                     listeners[name].push(fn);
                 }
@@ -422,7 +442,6 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                     updateContextDefinition(config, name);
                     importScript(config, name, currentPath, errorback, function() {
                         completeScriptLoad(config, name, errorback, function() {
-                            triggerListeners(name);
                             fn();
                         });
                     });
@@ -432,18 +451,25 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
                     finish();
                 } else if (pluginName && !definitions[fullName] && definitions[pluginName] && definitions[pluginName].isLoading) {
+
                     addListener(pluginName, triggerPlugin);
                 } else if (pluginName && !definitions[fullName] && !definitions[pluginName]) {
+
                     loadScript(pluginName, triggerPlugin);
                 } else if (pluginName && !definitions[fullName]) {
+
                     triggerPlugin(fullName);
                 } else if (definitions[fullName] && definitions[fullName].isLoading) {
+
                     addListener(fullName, finish);
                 } else if (!definitions[fullName]) {
+
                     loadScript(fullName, finish);
                 } else {
+
                     finish();
                 }
+
 
             })(dependencies[i]);
         }
@@ -475,6 +501,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
                 if (!instances[name]) {
                     var definition = definitions[name];
+
                     if (definition.dependencies) {
                         loadDependencyInstances(config, name, definition.dependencies, function() {
                             executeDefinitionCallback(name, definition, arguments);
@@ -519,3 +546,4 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     }
 
 })(requireConfig);
+

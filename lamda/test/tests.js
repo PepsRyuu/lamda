@@ -325,5 +325,14 @@ suite('require', function () {
     });
   });
 
+  // test('reference counting', function(done) {
+  //   require({context: "referencecount"}, ["referencetest/A"], function(A) {
+  //       assert.equal(require.s.contexts["referencecount"].definitions["referencetest/A"].referenceCount, 1);
+  //       assert.equal(require.s.contexts["referencecount"].definitions["referencetest/B"].referenceCount, 1);
+  //       assert.equal(require.s.contexts["referencecount"].definitions["referencetest/C"].referenceCount, 2);
+  //       done();
+  //   }); 
+  // })
+
 });
 
