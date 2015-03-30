@@ -36,9 +36,16 @@ exports = module.exports = function(config, outputdir, callback) {
         for (var exportDef in definitions) {
             if (currentModule.exclude.indexOf(exportDef) > -1) {
                 decreaseDependencyReferenceCounts(config, exportDef, definitions[exportDef].dependencies)
-                delete definitions[exportDef];
             }
         }
+
+        // Must be done separately, so that references are substracted correctly
+        for (var exportDef in definitions) {
+            if (currentModule.exclude.indexOf(exportDef) > -1) {
+                delete definitions[exportDef];
+            }
+        }  
+
         delete definitions["require"];
         delete definitions["exports"];
         delete definitions["module"];
