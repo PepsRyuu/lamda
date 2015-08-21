@@ -334,5 +334,12 @@ suite('require', function () {
   //   }); 
   // })
 
+  test('a plugin which has multiple self-dependencies', function(done) {
+    require(['pluginwithdependencies!./dummy'], function(pluginwithdependencies) {
+        assert.equal(pluginwithdependencies.message, "hello from dependency");
+        done();
+    })
+  })
+
 });
 

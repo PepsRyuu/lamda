@@ -311,61 +311,51 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         var definitions = _require.s.contexts[config.context].definitions;
         var pluginObj = definitions[pluginName];
 
-        // Iterate over the dependencies for the plugin and instantiate them
-        var args = [];
-        pluginObj.dependencies.forEach(function(dependency) {
-            var dependencyObj = _require.s.contexts[config.context].definitions[dependency];
-            if (typeof dependencyObj.callback === "function") {
-                args.push(dependencyObj.callback());
-            } else if (dependencyObj.callback) {
-                args.push(dependencyObj.callback)
-            } else {
-                args.push(dependencyObj);
+        _require({context: config.context}, pluginObj.dependencies, function() {
+            var pluginInstance = pluginObj.callback.apply(config, arguments);
+
+            var localRequire = function(dependencies, callback) {
+                _require({context: config.context}, dependencies, callback);
+            }
+            localRequire.toUrl = function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");};
+
+            var onLoad = function(content) {
+                define(name, [], function() {
+                    return content;
+                })
+                callback();
+            }
+
+            onLoad.fromText = function(content) {
+                define(name, [], function() {
+                    return eval(content);
+                })
+                callback();
+            }
+
+            onLoad.error = function(err) {
+                if (errorback) {
+                    errorback(err);
+                } else {
+                    throw err;
+                }
+            }
+
+            var write = function(content) {}
+
+            write.asModule = function(moduleName, moduleFilename, moduleContent) {
+                callback(moduleContent);
+            }
+
+
+            // Call the plugin with the API
+            if (config.isBuild && pluginInstance.writeFile) {
+                pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
+            } else if (!config.isBuild) {
+                pluginInstance.load(fileName, localRequire, onLoad, config);
             }
         })
-
-        // Prepare the plugin API
-        var pluginInstance = pluginObj.callback.apply(config, args);
-        var localRequire = function(dependencies, callback) {
-            _require({context: config.context}, dependencies, callback);
-        }
-        localRequire.toUrl = function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");};
-
-        var onLoad = function(content) {
-            define(name, [], function() {
-                return content;
-            })
-            callback();
-        }
-
-        onLoad.fromText = function(content) {
-            define(name, [], function() {
-                return eval(content);
-            })
-            callback();
-        }
-
-        onLoad.error = function(err) {
-            if (errorback) {
-                errorback(err);
-            } else {
-                throw err;
-            }
-        }
-
-        var write = function(content) {}
-
-        write.asModule = function(moduleName, moduleFilename, moduleContent) {
-            callback(moduleContent);
-        }
-
-
-        // Call the plugin with the API
-        if (config.isBuild && pluginInstance.writeFile) {
-            pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
-        } else if (!config.isBuild) {
-            pluginInstance.load(fileName, localRequire, onLoad, config);
-        }
+       
 
     }
 
