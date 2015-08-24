@@ -311,7 +311,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         var definitions = _require.s.contexts[config.context].definitions;
         var pluginObj = definitions[pluginName];
 
-        _require({context: config.context}, pluginObj.dependencies, function() {
+        loadDependencyInstances(merge(config, {isPlugin: true}), currentPath, pluginObj.dependencies, function() {
             var pluginInstance = pluginObj.callback.apply(config, arguments);
 
             var localRequire = function(dependencies, callback) {
@@ -446,8 +446,8 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 }
 
                 // Ignore anything that translates to empty
-                if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
-                    finish();
+               if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
+                   finish();
                 } else if (pluginName && !definitions[fullName] && definitions[pluginName] && definitions[pluginName].isLoading) {
 
                     addListener(pluginName, triggerPlugin);
@@ -480,7 +480,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
     function loadDependencyInstances(config, currentPath, dependencies, callback) {
 
         // This should be skipped in a build since it's pointless
-        if (!config.isBuild) {
+        if (!config.isBuild || config.isPlugin) {
             var definitions = _require.s.contexts[config.context].definitions;
             var instances = _require.s.contexts[config.context].instances;
             var args = [];
@@ -500,12 +500,15 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                 if (!instances[name]) {
                     var definition = definitions[name];
 
-                    if (definition.dependencies) {
-                        loadDependencyInstances(config, name, definition.dependencies, function() {
-                            executeDefinitionCallback(name, definition, arguments);
-                        });
-                    } else {
-                        executeDefinitionCallback(name, definition);
+                    // If not defined, just give undefined
+                    if (definition) {
+                        if (definition.dependencies) {
+                            loadDependencyInstances(config, name, definition.dependencies, function() {
+                                executeDefinitionCallback(name, definition, arguments);
+                            });
+                        } else {
+                            executeDefinitionCallback(name, definition);
+                        }
                     }
                 }
 
