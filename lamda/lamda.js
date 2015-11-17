@@ -317,7 +317,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             var localRequire = function(dependencies, callback) {
                 _require({context: config.context}, dependencies, callback);
             }
-            localRequire.toUrl = function(path){return (config.baseUrl + "/" + resolvePath(currentPath, path, config)).replace("//", "/");};
+            localRequire.toUrl = function(path){return (config.baseUrl + "/" + translatePath(resolvePath(currentPath, path, config), config)).replace("//", "/");};
 
             var onLoad = function(content) {
                 define(name, [], function() {

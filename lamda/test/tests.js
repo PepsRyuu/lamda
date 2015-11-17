@@ -341,5 +341,18 @@ suite('require', function () {
     })
   })
 
+  test('plugin with value that requires path translation', function(done) {
+    require({
+        baseUrl: "src",
+        paths: {
+            "text": "../text",
+            "referencetest": "../referencetest"
+        }
+    }, ['text!referencetest/message.txt'], function(message) {
+        assert.equal(message, "Hello World!");
+        done();
+    })
+  })
+
 });
 
