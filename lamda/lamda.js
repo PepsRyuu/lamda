@@ -312,7 +312,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         var pluginObj = definitions[pluginName];
 
         loadDependencyInstances(merge(config, {isPlugin: true}), currentPath, pluginObj.dependencies, function() {
-            var pluginInstance = pluginObj.callback.apply(config, arguments);
+            var pluginInstance = pluginObj.callback.apply(null, arguments);
 
             var localRequire = function(dependencies, callback) {
                 _require({context: config.context}, dependencies, callback);
@@ -487,7 +487,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
             function executeDefinitionCallback(name, definition, theArguments) {
                 if (typeof definition.callback === "function") {
-                    instances[name] = definition.callback.apply(config, theArguments);
+                    instances[name] = definition.callback.apply(null, theArguments);
                 } else {
                     instances[name] = definition.callback;
                 }
@@ -517,7 +517,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
             // Once everything has been instantiated, call the require callback
             if (callback) {
-                callback.apply(config, args);
+                callback.apply(null, args);
             }
         }
 
