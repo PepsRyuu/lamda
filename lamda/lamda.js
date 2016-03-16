@@ -1,92 +1,145 @@
-// Create the requireConfig variable if it doesn't already exist
-if ((typeof process !== 'undefined'  && process.versions && !!process.versions.node) || typeof require === 'undefined') {
-    var requireConfig = {};
-} else if (typeof require !== 'undefined') {
-    var requireConfig = require;
-}
-
-(function(customGlobalConfig) {
+/*!
+ * Copyright (c) 2016 Paul Sweeney.
+ * Licenced under MIT.
+ *
+ * http://github.com/PepsRyuu/lamda
+ */
+(function(requireConfig) {
 
     var definitionTempQueue = [];
 
-    /**
-     *
-     */
-    function _require(arg1, arg2, arg3, arg4) {
-        // Figure out what the arguments are
+    // Transport is separated into a separate function because it can be
+    // overrided by the lamda-optimizer tool to use NodeJS functions instead.
+    var Transport = function(name, src, onload, requester, errorback) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", src, true);
+        var onerror = function(e) {
+            if (errorback) {
+                errorback({
+                    src: src,
+                    requester: requester
+                });
+            } else {
+                throw new Error('\n  Missing: ' + src + '\n  Requester: ' + requester);
+            }
+        };
+        xhr.onerror = onerror;
+        xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300 || xhr.status === 304) {
+                eval(xhr.responseText);
+                onload();
+            } else {
+                onerror();
+            }
+        };
+        xhr.send();
+    };
+
+    function require(arg1, arg2, arg3, arg4) {
         var config, dependencies, callback, errorback;
-        if (!(arg1 instanceof Array)) {
+
+        // First argument is an optional context object.
+        // If it's not the first argument, then the second argument is dependencies.
+        if (!Array.isArray(arg1)) {
             config = arg1, dependencies = arg2, callback = arg3, errorback = arg4;
         } else {
             dependencies = arg1, callback = arg2, errorback = arg3;
         }
 
-        config = config? _require.config(config) : _require.s.contexts["_"].config;
+        // If a config was passed in, fetch the config requested, else use global config.
+        config = config ? require.config(config) : require.s.contexts['_'].config;
 
         // Handle all of the defines before this require call, and then load scripts
-        completeScriptLoad(config, "", errorback, function() {
-            loadDependencyScripts(config, "", dependencies, errorback, function() {
-                loadDependencyInstances(config, "",dependencies, callback);
+        completeScriptLoad(config, '', errorback, function() {
+            loadDependencyScripts(config, '', dependencies, errorback, function() {
+                loadDependencyInstances(config, '', dependencies, callback);
             });
         });
     }
 
-    /**
-     *
-     */
-    _require.config = function(config) {
-        // Parse packages and translate them all first
+    require.config = function(config) {
         if (config.packages) {
-            for (var i = 0; i < config.packages.length; i++) {
-                var packageObj = config.packages[i];
+            config.packages.forEach(function(packageObj, index) {
                 if (typeof packageObj === 'string') {
-                    config.packages[i] = {name: packageObj, location: packageObj, main: "main"}
+                    config.packages[index] = {
+                        name: packageObj,
+                        location: packageObj,
+                        main: 'main'
+                    }
                 } else {
                     packageObj.location = packageObj.location || packageObj.name;
-                    packageObj.main = packageObj.main || "main";
+                    packageObj.main = packageObj.main || 'main';
                 }
+            });
+        }
+
+        var context = require.s.contexts[config.context || '_'] || createContext(config);
+        context.config = merge(context.config, config);
+        return context.config;
+    }
+
+    function createContext(config) {
+        var context = {
+            config: {
+                baseUrl: './',
+                context: config.context
+            },
+            instances: {},
+            definitions: {},
+            listeners: {}
+        };
+
+        require.s.contexts[config.context] = context;
+
+        // Stub for require import, it's not used, just avoids having to put in checks for it
+        updateContextDefinition(context.config, 'require', {
+            name: 'require',
+            callback: {}
+        }, false);
+
+        return context;
+    }
+
+    function updateContextDefinition(config, name, definition, isLoading) {
+        var contextDefinitions = require.s.contexts[config.context].definitions;
+
+        if (!contextDefinitions[name]) {
+            contextDefinitions[name] = {
+                referenceCount: 0,
+                isLoading: isLoading !== undefined ? isLoading : true
             }
         }
 
-        // test for the context
-        var contextObj = _require.s.contexts[config.context || "_"];
-
-        // If it exists, merge existing context config with new config
-        if (contextObj) {
-            contextObj.config = merge(contextObj.config, config);
-        } else {
-            _require.s.contexts[config.context] = contextObj = createContext(config);
+        if (definition) {
+            contextDefinitions[name] = merge(definition, contextDefinitions[name]);
         }
-
-        return contextObj.config;
     }
 
-    /**
-     *
-     */
     function merge(obj1, obj2) {
-        var obj3 = {};
-        for (var attrname in obj1) { obj3[attrname] = obj1[attrname]; }
+        var output = {};
+
+        for (var attrname in obj1) {
+            output[attrname] = obj1[attrname];
+        }
+
         for (var attrname in obj2) {
-            if (typeof obj2[attrname] === "object" && !(obj2[attrname] instanceof Array)) {
-                obj3[attrname] = merge(obj1[attrname], obj2[attrname]);
+            if (typeof obj2[attrname] === 'object' && !(obj2[attrname] instanceof Array)) {
+                output[attrname] = merge(obj1[attrname], obj2[attrname]);
             } else {
-                obj3[attrname] = obj2[attrname];
+                output[attrname] = obj2[attrname];
             }
         }
-        return obj3;
+
+        return output;
     }
 
-    /**
-     *  Figures out the arguments, and adds to the definition queue
-     */
     function define(arg1, arg2, arg3) {
-        var name = typeof arg1 === "string"? arg1 : undefined;
-        var dependencies = arg1 instanceof Array? arg1 : arg2 instanceof Array? arg2 : [];
+        var name = typeof arg1 === 'string' ? arg1 : undefined;
+        var dependencies = arg1 instanceof Array ? arg1 : arg2 instanceof Array ? arg2 : [];
         var callbackTest = function(subject) {
-            return !(subject instanceof Array) && (typeof subject === "object" || typeof subject === "function");
+            return !(subject instanceof Array) && (typeof subject === 'object' || typeof subject === 'function');
         }
-        var callback = callbackTest(arg1)? arg1 : callbackTest(arg2)? arg2 : arg3;
+        var callback = callbackTest(arg1) ? arg1 : callbackTest(arg2) ? arg2 : arg3;
 
         definitionTempQueue.push({
             name: name,
@@ -95,17 +148,13 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         });
     }
 
-    /**
-     * Takes a path, and compares it against paths defined in require configuration.
-     * A translation is done if the path starts with any of the keys in the paths config.
-     */
-    function translatePath(pathToTranslate, config) {
+    function translatePath(config, pathToTranslate) {
 
         function __tt(test, replacement) {
-            var regex = new RegExp("^("+test+")(/.*|$|!)");
+            var regex = new RegExp('^(' + test + ')(/.*|$|!)');
             var matches = pathToTranslate.match(regex);
             if (matches) {
-                return pathToTranslate.replace(regex, replacement+"$2");
+                return pathToTranslate.replace(regex, replacement + '$2');
             }
         }
 
@@ -129,27 +178,21 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         return pathToTranslate;
     }
 
-    function checkIfPackageAndGetMain(name, config) {
+    function checkIfPackageAndGetMain(config, name) {
         var target = name;
         if (config.packages) {
             for (var i = 0; i < config.packages.length; i++) {
                 var packageObj = config.packages[i];
                 if (target === packageObj.name) {
-                    target = packageObj.name + "/" + packageObj.main;
-                    break;
+                    return packageObj.name + '/' + packageObj.main;
                 }
             }
         }
         return target;
     }
 
-    /**
-     * Takes the current module path, and the target path (dependency) and resolves it relatively.
-     * If the target path does not start with ../ or ./, it's assumed to be relative to root.
-     * A translation using the paths require configuration is also done, so a real url is returned.
-     */
-    function resolvePath(currentPath, targetPath, config) {
-        currentPath = currentPath == ""? "" : currentPath.substring(0, currentPath.lastIndexOf("/"));
+    function resolvePath(config, currentPath, targetPath) {
+        currentPath = currentPath == "" ? "" : currentPath.substring(0, currentPath.lastIndexOf("/"));
         var resultPath;
 
         var prefixIndex = targetPath.indexOf("!");
@@ -160,7 +203,7 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         }
 
         if (targetPath.indexOf("./") === 0 || targetPath.indexOf("../") === 0) {
-            var currentPathParts = currentPath === ""? [] : currentPath.split("/");
+            var currentPathParts = currentPath === "" ? [] : currentPath.split("/");
             var targetPathParts = targetPath.split("/");
             for (var i = 0; i < targetPathParts.length; i++) {
                 if (targetPathParts[i] == "..") {
@@ -171,106 +214,17 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
             }
             resultPath = currentPathParts.join("/");
         } else {
-            resultPath = checkIfPackageAndGetMain(targetPath, config);
+            // We have to check for main files here instead of in translation so that we can 
+            // use this to record the module in memory locally. Otherwise a developer could
+            // import "pkg" and "pkg/main" as two separate modules even though they're the same.
+            resultPath = checkIfPackageAndGetMain(config, targetPath);
         }
-
         return prefix + resultPath;
     }
 
-    function createContext(config) {
-        var context = {
-            config: merge({baseUrl: "./", context: "_"}, config),
-            instances: {},
-            definitions: {},
-            listeners: {}
-        };
-
-        _require.s.contexts[context.config.context] = context;
-        updateContextDefinition(context.config, "require", {name: "require", callback: {config: function(){return context.config}}}, false);
-        updateContextDefinition(context.config, "exports", {name: "exports", callback: {}}, false);
-        updateContextDefinition(context.config, "module", {name: "module", callback: {config: function() {return context.config;}}}, false);
-
-        return context;
-    }
-
-    /**
-     * Loads the scripts and executes it. Once loaded, the onload callback is executed.
-     */
-    function importScript(config, name, requester, errorback, onload) {
-
-        if (config.mocks) {
-            for (var i = 0; i < config.mocks.length; i++) {
-                var mock = config.mocks[i];
-                if (name === mock.name) {
-                    define(mock.name, mock.dependencies || [], mock.callback);
-                    onload();
-                    return;
-                }
-            }
-        }
-
-        if (typeof process !== "undefined" && process.versions && !!process.versions.node) {
-            _require.nodeRequire = require;
-            var fs = require("fs");
-            var translatedPath = translatePath(name, config);
-            var script = fs.readFileSync((config.baseUrl + "/" + translatedPath + ".js").replace("//", "/"), "utf8");
-
-            if (config.isBuild) {
-                var matches = script.match(/\/\*\![\s\S]+?\*\//g); //license
-                if (matches) {
-                    _require.s.contexts[config.context].definitions[name].licenses = matches;
-                }
-            }
-            
-            eval(script);
-            onload();
-        } else {
-            var tag = document.createElement("script");
-            tag.type = "text\/javascript";
-            tag.setAttribute("async", "");
-            tag.setAttribute("data-context", config.context);
-            tag.setAttribute("data-modulename", name);
-            tag.setAttribute("charset", "utf-8");
-            tag.src = ((name.indexOf("/") === 0? "./" : config.baseUrl) + "/" + translatePath(name, config) + ".js").replace("//", "/");
-            tag.onerror = function(e) {
-                if (errorback) {
-                    errorback(e);
-                } else {
-                    throw new Error("\n  Missing: " + e.target.src + "\n  Requester: " + requester);
-                }
-            }
-            tag.onload = onload;
-
-            document.getElementsByTagName("head")[0].appendChild(tag);
-            return tag;
-        }
-
-    }
-
-    /**
-     * If the definition doesn't exist, one is created with referenceCount and isLoading.
-     * If a definition is passed, it is merged, and isLoading is deleted.
-     */
-    function updateContextDefinition(config, name, definition, isLoading) {
-        var contextDefinitions = _require.s.contexts[config.context].definitions;
-
-        if (!contextDefinitions[name]) {
-            contextDefinitions[name] = {
-                referenceCount: 0,
-                isLoading: isLoading !== undefined? isLoading : true
-            }
-        }
-
-        if (definition) {
-           contextDefinitions[name] = merge(definition, contextDefinitions[name]);
-        }
-    }
-
-    /**
-     * Executed after a script has loaded. Iterates over the dependency queue and loads their dependencies.
-     */
     function completeScriptLoad(config, name, errorback, callback, ignoreDependencies) {
-        var definitionTemp, notCompleted = definitionTempQueue.length, queue = definitionTempQueue.slice();
+        var definitionTemp, notCompleted = definitionTempQueue.length,
+            queue = definitionTempQueue.slice();
         definitionTempQueue = [];
 
         if (notCompleted === 0) {
@@ -279,15 +233,18 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
         for (var i = 0; i < queue.length; i++) {
             definitionTemp = queue[i];
-            definitionTemp.name = checkIfPackageAndGetMain(definitionTemp.name || name, config);
+            // Some main modules could compile as "pkg" instead of "pkg/main". This ensures
+            // that when we read a compiled module that it will be treated the same. If the module
+            // has no name then we assign it the name that was passed into this function instead. This would
+            // be assigned to the anonymous module in the queue, which there should only be one.
+            definitionTemp.name = checkIfPackageAndGetMain(config, definitionTemp.name || name);
             updateContextDefinition(config, definitionTemp.name, definitionTemp);
         }
-
 
         while (definitionTemp = queue.pop()) {
             (function(localDef) {
                 loadDependencyScripts(config, localDef.name, localDef.dependencies, errorback, function() {
-                    _require.s.contexts[config.context].definitions[localDef.name].isLoading = false;
+                    require.s.contexts[config.context].definitions[localDef.name].isLoading = false;
                     triggerListeners(localDef.name, config);
 
                     if (--notCompleted === 0) {
@@ -295,73 +252,59 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                     }
                 }, ignoreDependencies);
             })(definitionTemp)
-
         }
     }
 
-    /**
-     * Executes the plugin. Mimics require.js plugin structure.
-     */
     function callPlugin(config, currentPath, dependencyPath, errorback, callback) {
         // Get the full names
-        var pathParts = dependencyPath.split("!");
-        var name = resolvePath(currentPath, dependencyPath, config);
-        var fileName = resolvePath(currentPath, pathParts[1], config);
-        var pluginName = resolvePath(currentPath, pathParts[0], config);
-        var definitions = _require.s.contexts[config.context].definitions;
+        var pathParts = dependencyPath.split('!');
+        var name = resolvePath(config, currentPath, dependencyPath);
+        var fileName = resolvePath(config, currentPath, pathParts[1]);
+        var pluginName = resolvePath(config, currentPath, pathParts[0]);
+        var definitions = require.s.contexts[config.context].definitions;
         var pluginObj = definitions[pluginName];
 
-        loadDependencyInstances(merge(config, {isPlugin: true}), currentPath, pluginObj.dependencies, function() {
-            var pluginInstance = pluginObj.callback.apply(null, arguments);
+        var localRequireConfig = merge(config, {
+            isPlugin: true
+        });
 
-            var localRequire = function(dependencies, callback) {
-                _require({context: config.context}, dependencies, callback);
-            }
-            localRequire.toUrl = function(path){return (config.baseUrl + "/" + translatePath(resolvePath(currentPath, path, config), config)).replace("//", "/");};
+        loadDependencyInstances(localRequireConfig, currentPath, pluginObj.dependencies, function() {
+            var dependencyInstances = arguments;
+            loadDependencyInstances(localRequireConfig, currentPath, ["require"], function(localRequire) {
+                var pluginInstance = pluginObj.callback.apply(null, dependencyInstances);
 
-            var onLoad = function(content) {
-                define(name, [], function() {
-                    return content;
-                })
-                callback();
-            }
-
-            onLoad.fromText = function(content) {
-                define(name, [], function() {
-                    return eval(content);
-                })
-                callback();
-            }
-
-            onLoad.error = function(err) {
-                if (errorback) {
-                    errorback(err);
-                } else {
-                    throw err;
+                var onLoad = function(content) {
+                    define(name, [], function() {
+                        return content;
+                    })
+                    callback();
                 }
-            }
 
-            var write = function(content) {}
+                onLoad.error = function(err) {
+                    if (errorback) {
+                        errorback(err);
+                    } else {
+                        throw err;
+                    }
+                }
 
-            write.asModule = function(moduleName, moduleFilename, moduleContent) {
-                callback(moduleContent);
-            }
+                var write = {
+                    asModule: function(moduleName, moduleFilename, moduleContent) {
+                        callback(moduleContent);
+                    }
+                };
 
-
-            // Call the plugin with the API
-            if (config.isBuild && pluginInstance.writeFile) {
-                pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
-            } else if (!config.isBuild) {
-                pluginInstance.load(fileName, localRequire, onLoad, config);
-            }
+                if (config.isBuild && pluginInstance.writeFile) {
+                    pluginInstance.writeFile(pluginObj.name, fileName, localRequire, write, config);
+                } else if (!config.isBuild) {
+                    pluginInstance.load(fileName, localRequire, onLoad, config);
+                }
+            });
         })
-       
-
     }
 
-    // Activated when a script has loaded
     var triggerListeners = function(name, config) {
-        var listeners = _require.s.contexts[config.context].listeners;
+        var listeners = require.s.contexts[config.context].listeners;
         if (listeners[name]) {
             listeners[name].forEach(function(listener) {
                 listener();
@@ -370,13 +313,9 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         }
     }
 
-    /**
-     * Iterates over the passed dependencies, and will load their scripts.
-     */
     function loadDependencyScripts(config, currentPath, dependencies, errorback, callback, ignoreDependencies) {
-
-        var definitions = _require.s.contexts[config.context].definitions;
-        var listeners = _require.s.contexts[config.context].listeners;
+        var definitions = require.s.contexts[config.context].definitions;
+        var listeners = require.s.contexts[config.context].listeners;
 
         var notCompleted = dependencies.length;
         if (notCompleted === 0 || ignoreDependencies) {
@@ -386,26 +325,22 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
         for (var i = 0; i < dependencies.length; i++) {
             (function(dependencyPath) {
 
-                // Parse the name into a plugin and into the full name (which includes plugin prefix)
-                var prefixIndex = dependencyPath.indexOf("!");
-                var pluginName = prefixIndex > -1? resolvePath(currentPath, dependencyPath.substring(0, prefixIndex), config) : undefined;
-                var fullName = resolvePath(currentPath, dependencyPath, config);
+                var prefixIndex = dependencyPath.indexOf('!');
+                var pluginName = prefixIndex > -1 ? resolvePath(config, currentPath, dependencyPath.substring(0, prefixIndex)) : undefined;
+                var fullName = resolvePath(config, currentPath, dependencyPath);
 
-                // When all dependencies have been loaded, call the callback
                 var increaseReferenceCount = function(name) {
                     if (definitions[name]) {
                         if (definitions[name].dependencies) {
                             definitions[name].dependencies.forEach(function(dep) {
-                                var depName = resolvePath(name, dep, config);
+                                var depName = resolvePath(config, name, dep);
                                 if (definitions[depName]) {
-                                    definitions[resolvePath(name, dep, config)].referenceCount++;
+                                    definitions[resolvePath(config, name, dep)].referenceCount++;
                                 }
                             });
                         }
-                        
                     }
                 }
-
 
                 var finish = function() {
                     increaseReferenceCount(fullName);
@@ -418,16 +353,14 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
                             updateContextDefinition(config, fullName, {
                                 name: fullName,
                                 referenceCount: 1,
-                                output: writeContent.replace("define(", "define('"+fullName+"',")
+                                output: writeContent.replace('define(', 'define(\'' + fullName + '\',')
                             }, false);
                             finish();
                         } else {
                             completeScriptLoad(config, fullName, errorback, function() {
                                 finish();
-                            }, true);                        
+                            }, true);
                         }
-
-                        
                     });
                 }
 
@@ -438,84 +371,87 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
                 var loadScript = function(name, fn) {
                     updateContextDefinition(config, name);
-                    importScript(config, name, currentPath, errorback, function() {
+                    var src = ((name.indexOf('/') === 0 ? './' : config.baseUrl) + '/' + translatePath(config, name) + '.js').replace('//', '/');
+                    Transport(name, src, function() {
                         completeScriptLoad(config, name, errorback, function() {
                             fn();
                         });
-                    });
+                    }, currentPath, errorback);
                 }
 
-                // Ignore anything that translates to empty
-               if (config.isBuild && translatePath(dependencyPath, config).indexOf("empty:") === 0) {
-                   finish();
+                if (config.isBuild && translatePath(config, dependencyPath).indexOf('empty:') === 0) {
+                    finish();
                 } else if (pluginName && !definitions[fullName] && definitions[pluginName] && definitions[pluginName].isLoading) {
-
                     addListener(pluginName, triggerPlugin);
                 } else if (pluginName && !definitions[fullName] && !definitions[pluginName]) {
-
                     loadScript(pluginName, triggerPlugin);
                 } else if (pluginName && !definitions[fullName]) {
-
                     triggerPlugin(fullName);
                 } else if (definitions[fullName] && definitions[fullName].isLoading) {
-
                     addListener(fullName, finish);
                 } else if (!definitions[fullName]) {
-
                     loadScript(fullName, finish);
                 } else {
-
                     finish();
                 }
-
 
             })(dependencies[i]);
         }
 
     }
 
-    /**
-     * Iterates over the list of passed dependencies, and instantiates a copy of the dependency for the context if one hasn't been already. Once the dependency tree has been iterated through, the callback is executed passing those instances.
-     */
     function loadDependencyInstances(config, currentPath, dependencies, callback) {
 
-        // This should be skipped in a build since it's pointless
         if (!config.isBuild || config.isPlugin) {
-            var definitions = _require.s.contexts[config.context].definitions;
-            var instances = _require.s.contexts[config.context].instances;
+            var definitions = require.s.contexts[config.context].definitions;
+            var instances = require.s.contexts[config.context].instances;
             var args = [];
 
             function executeDefinitionCallback(name, definition, theArguments) {
-                if (typeof definition.callback === "function") {
+                if (typeof definition.callback === 'function') {
                     instances[name] = definition.callback.apply(null, theArguments);
                 } else {
                     instances[name] = definition.callback;
                 }
             }
 
-            // Recursively iterate through the dependencies and instantiate them for the context
             dependencies.forEach(function(dependencyPath) {
-                var name = resolvePath(currentPath, dependencyPath, config);
+                var name = resolvePath(config, currentPath, dependencyPath);
 
-                if (!instances[name]) {
-                    var definition = definitions[name];
+                if (dependencyPath === "require") {
+                    var localRequire = function(dependencies, callback) {
+                        require({
+                            context: config.context
+                        }, dependencies, callback);
+                    };
 
-                    // If not defined, just give undefined
-                    if (definition) {
-                        if (definition.dependencies) {
-                            loadDependencyInstances(config, name, definition.dependencies, function() {
-                                executeDefinitionCallback(name, definition, arguments);
-                            });
-                        } else {
-                            executeDefinitionCallback(name, definition);
+                    localRequire.config = function() {
+                        return config;
+                    };
+
+                    localRequire.toUrl = function(targetPath) {
+                        return (config.baseUrl + '/' + translatePath(config, resolvePath(config, currentPath, targetPath))).replace('//', '/');
+                    };
+                    args.push(localRequire)
+                } else {
+                    if (!instances[name]) {
+                        var definition = definitions[name];
+
+                        if (definition) {
+                            if (definition.dependencies) {
+                                loadDependencyInstances(config, name, definition.dependencies, function() {
+                                    executeDefinitionCallback(name, definition, arguments);
+                                });
+                            } else {
+                                executeDefinitionCallback(name, definition);
+                            }
                         }
                     }
-                }
 
-                args.push(instances[name]);
+                    args.push(instances[name]);
+                }
             });
 
-            // Once everything has been instantiated, call the require callback
             if (callback) {
                 callback.apply(null, args);
             }
@@ -523,28 +459,34 @@ if ((typeof process !== 'undefined'  && process.versions && !!process.versions.n
 
     }
 
-    _require.reset = function() {
-        _require.s = {contexts:{}};
-        createContext(customGlobalConfig || {})
-        _require.config(customGlobalConfig);
-        define.amd = true;
+    require.reset = function() {
+        require.s = {
+            contexts: {}
+        };
+        createContext({
+            context: "_"
+        });
+        require.config(requireConfig);
     }
 
-    _require.reset();
+    require.reset();
+    define.amd = true;
 
-    if (typeof process !== "undefined" && process.versions && !!process.versions.node) {
+    if (typeof process !== 'undefined' && process.versions && !!process.versions.node) {
         module.exports = {
-            require: _require,
+            require: require,
             define: define,
             merge: merge,
             translatePath: translatePath,
             resolvePath: resolvePath,
-            createContext: createContext
+            createContext: createContext,
+            setTransport: function(fn) {
+                Transport = fn;
+            }
         };
     } else if (typeof module === 'undefined') {
-        window.require = _require;
+        window.require = require;
         window.define = define;
     }
 
-})(requireConfig);
-
+})(typeof require === 'object' ? require : {});

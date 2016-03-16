@@ -6,6 +6,19 @@ exports = module.exports = function(config, outputdir, callback) {
     var lamda = require("lamda");
     var uneval = require("uneval");
     var currentModule;
+    var currentConfig;
+
+    lamda.setTransport(function(name, src, onload) {
+        var script = require('fs').readFileSync(src, 'utf8');
+
+        var matches = script.match(/\/\*\![\s\S]+?\*\//g); //license
+        if (matches) {
+            lamda.require.s.contexts[currentConfig.context].definitions[name].licenses = matches;
+        }
+        
+        eval(script);
+        onload();
+    });
 
     GLOBAL.define = lamda.define;
     lamda.require.nodeRequire = require;
@@ -16,7 +29,7 @@ exports = module.exports = function(config, outputdir, callback) {
         var definitions = context.definitions;
         if (dependencies) {
             for (var i = 0; i < dependencies.length; i++) {
-                var fullDependencyName = lamda.resolvePath(module, dependencies[i], config);
+                var fullDependencyName = lamda.resolvePath(config, module, dependencies[i]);
 
                 var definition = definitions[fullDependencyName];
                 if (definition) {
@@ -47,8 +60,6 @@ exports = module.exports = function(config, outputdir, callback) {
         }  
 
         delete definitions["require"];
-        delete definitions["exports"];
-        delete definitions["module"];
     }
 
     function write(module, definitions) {
@@ -96,8 +107,6 @@ exports = module.exports = function(config, outputdir, callback) {
                 }
                 output += ");\n\n";
             }
-
-            
         });
 
         var outputFile = module.name;
@@ -118,10 +127,6 @@ exports = module.exports = function(config, outputdir, callback) {
             output = config.header + "\n" + output;
         }
 
-
-
-
-
         fs.writeFileSync(outputdir + "/" + outputFile +".js", output, "utf8");
     }
 
@@ -130,17 +135,16 @@ exports = module.exports = function(config, outputdir, callback) {
         module.exclude = module.exclude || [];
 
         currentModule = module;
-        var localConfig = lamda.merge(config, {
+        currentConfig = lamda.merge(config, {
             context: module.name,
             isBuild: true,
             inlineText: true
         });
 
-        // Begin
-        lamda.createContext(localConfig);
+        lamda.createContext(currentConfig);
         config.modules.forEach(function(mod) {
             if (mod.name !== mod.location) {
-                lamda.require.s.contexts[localConfig.context].definitions[mod.name] = {
+                lamda.require.s.contexts[currentConfig.context].definitions[mod.name] = {
                     name: mod.name,
                     dependencies: [mod.location],
                     callback: function(main) {
@@ -151,9 +155,9 @@ exports = module.exports = function(config, outputdir, callback) {
         });
 
         console.log("\n\t"+module.name+"\n\t----------------------");
-        lamda.require(localConfig, [module.location])
+        lamda.require(currentConfig, [module.location])
 
-        excludeDefinitions(localConfig, lamda.require.s.contexts[module.name].definitions);
+        excludeDefinitions(currentConfig, lamda.require.s.contexts[module.name].definitions);
 
         write(module, lamda.require.s.contexts[module.name].definitions);
         console.log("\n");
@@ -177,5 +181,4 @@ exports = module.exports = function(config, outputdir, callback) {
 
     config.modules.forEach(optimize);
     callback();
-
 }
