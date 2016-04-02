@@ -3,17 +3,30 @@
 # If error code, stop script
 set -e
 npm config set strict-ssl false
-npm install
+PHANTOMJS_CDNURL=http://cnpmjs.org/downloads npm install
 
-node build-tasks.js test
+node build-tasks.js test-lamda
 
 LICENSE=`cat LICENSE`
 rm -rf lamda/dist
 mkdir lamda/dist
 node node_modules/uglifyjs/bin/uglifyjs lamda/lamda.js \
     -o lamda/dist/lamda.min.js \
-    --mangle --compress \
-    --preamble "/*${LICENSE}*/"
+    --mangle --compress --verbose \
+    --preamble "/*${LICENSE}*/" 
+
+# Prepare the Optimizer Test Environment
+cd lamda-optimizer
+npm install
+npm install ../lamda 
+rm -rf target
+mkdir -p target/test
+cp test/index.html target/test/
+cp test/tests.js target/test/
+cd ..
+
+# Test the Optimizer
+node build-tasks.js test-optimizer
 
 if [ "$#" -ne 0 ] && [ $1 = "--release" ]
 then

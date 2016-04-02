@@ -138,6 +138,7 @@ exports = module.exports = function(config, outputdir, callback) {
         module.location = module.location || module.name;
         module.exclude = module.exclude || [];
 
+        lamda.require.reset();
         currentModule = module;
         currentConfig = lamda.merge(config, {
             context: module.name,
@@ -146,17 +147,15 @@ exports = module.exports = function(config, outputdir, callback) {
         });
 
         lamda.createContext(currentConfig);
-        config.modules.forEach(function(mod) {
-            if (mod.name !== mod.location) {
-                lamda.require.s.contexts[currentConfig.context].definitions[mod.name] = {
-                    name: mod.name,
-                    dependencies: [mod.location],
-                    callback: function(main) {
-                        return main;
-                    }
+        if (module.name !== module.location) {
+            lamda.require.s.contexts[currentConfig.context].definitions[module.name] = {
+                name: module.name,
+                dependencies: [module.location],
+                callback: function(main) {
+                    return main;
                 }
             }
-        });
+        }
 
         console.log("\n\t"+module.name+"\n\t----------------------");
         lamda.require(currentConfig, [module.location])
@@ -184,5 +183,9 @@ exports = module.exports = function(config, outputdir, callback) {
     }
 
     config.modules.forEach(optimize);
-    callback();
+
+    if (callback) {
+        callback();
+    }
+    
 }

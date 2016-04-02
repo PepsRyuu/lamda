@@ -4,7 +4,7 @@
  *
  * http://github.com/PepsRyuu/lamda
  */
-(function(requireConfig, global) {
+(function(requireConfig) {
 
     var definitionTempQueue = [];
 
@@ -31,8 +31,8 @@
         xhr.onload = function() {
             if (xhr.status >= 200 && xhr.status < 300 || xhr.status === 304) {
                 var output = xhr.responseText;
-                output += "\n//# sourceURL=" + window.location.protocol + "//" + resolveRelative(window.location.host + window.location.pathname, src);
-                eval.call(global, output);
+                output += "\n//# sourceURL=" + self.location.protocol + "//" + resolveRelative(self.location.host + self.location.pathname, src);
+                eval.call(null, output);
                 onload();
             } else {
                 onerror();
@@ -394,7 +394,7 @@
                     }, currentPath, errorback);
                 }
 
-                if (config.isBuild && translatePath(config, dependencyPath).indexOf('empty:') === 0) {
+                if (config.isBuild && translatePath(config, fullName).indexOf('empty:') === 0) {
                     finish();
                 } else if (pluginName && !definitions[fullName] && definitions[pluginName] && definitions[pluginName].isLoading) {
                     addListener(pluginName, triggerPlugin);
@@ -500,8 +500,8 @@
             }
         };
     } else if (typeof module === 'undefined') {
-        global.require = require;
-        global.define = define;
+        self.require = require;
+        self.define = define;
     }
 
-})(typeof require === 'object' ? require : {}, self);
+})(typeof require === 'object' ? require : {});
