@@ -20,6 +20,8 @@ exports = module.exports = function(config, outputdir, callback) {
         onload();
     });
 
+    // Some plugins use these nodeRequire imports during build.
+    require.nodeRequire = require;
     GLOBAL.define = lamda.define;
     lamda.require.nodeRequire = require;
     GLOBAL.nodeRequire = require;
@@ -59,7 +61,9 @@ exports = module.exports = function(config, outputdir, callback) {
             }
         }  
 
+        // Remove the stubs from compilation
         delete definitions["require"];
+        delete definitions["module"];
     }
 
     function write(module, definitions) {
@@ -164,15 +168,15 @@ exports = module.exports = function(config, outputdir, callback) {
     }
 
     function recursiveMkdir(path, position) {
-        var osSep = process.platform === 'win32' ? '\\' : '/';
-        var parts = Path.normalize(path).split(osSep);
+        var delimiter = process.platform === 'win32' ? '\\' : '/';
+        var parts = Path.normalize(path).split(delimiter);
         position = position || 0;
 
         if (position >= parts.length) {
             return true;
         }
 
-        var directory = parts.slice(0, position + 1).join(osSep) || osSep;
+        var directory = parts.slice(0, position + 1).join(delimiter) || delimiter;
         if (!fs.existsSync(directory)) {
             fs.mkdirSync(directory);
         }

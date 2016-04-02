@@ -1,18 +1,18 @@
 {
-  "name": "lamda-optimizer",
-  "version": "0.3.0",
-  "description": "Lamda Optimizer",
-  "main": "lamda-optimizer.js",
-  "dependencies": {
-    "uglify-js": "~2.4.12",
-    "lamda": "^0.3.0",
-    "uneval": "~0.1.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/PepsRyuu/lamda.git"
-  },
-  "author": "Paul Sweeney",
-  "license": "MIT",
-  "readmeFilename": "README.md"
+    "name": "lamda-optimizer",
+    "version": "0.4.0",
+    "description": "Lamda Optimizer",
+    "main": "lamda-optimizer.js",
+    "dependencies": {
+        "uglify-js": "~2.4.12",
+        "lamda": "0.4.0",
+        "uneval": "~0.1.2"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/PepsRyuu/lamda.git"
+    },
+    "author": "Paul Sweeney",
+    "license": "MIT",
+    "readmeFilename": "README.md"
 }

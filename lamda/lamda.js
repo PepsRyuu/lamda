@@ -4,13 +4,17 @@
  *
  * http://github.com/PepsRyuu/lamda
  */
-(function(requireConfig) {
+(function(requireConfig, global) {
 
     var definitionTempQueue = [];
 
     // Transport is separated into a separate function because it can be
     // overrided by the lamda-optimizer tool to use NodeJS functions instead.
     var Transport = function(name, src, onload, requester, errorback) {
+
+        // XHR because it's easier to work with, doesn't pollute and has no reliance on DOM.
+        // This means support for web workers, possibility to add a pre-processing pipeline
+        // along with potential to cache scripts for re-use in other contexts.
         var xhr = new XMLHttpRequest();
         xhr.open("GET", src, true);
         var onerror = function(e) {
@@ -26,7 +30,9 @@
         xhr.onerror = onerror;
         xhr.onload = function() {
             if (xhr.status >= 200 && xhr.status < 300 || xhr.status === 304) {
-                eval(xhr.responseText);
+                var output = xhr.responseText;
+                output += "\n//# sourceURL=" + window.location.protocol + "//" + resolveRelative(window.location.host + window.location.pathname, src);
+                eval.call(global, output);
                 onload();
             } else {
                 onerror();
@@ -94,6 +100,11 @@
         // Stub for require import, it's not used, just avoids having to put in checks for it
         updateContextDefinition(context.config, 'require', {
             name: 'require',
+            callback: {}
+        }, false);
+
+        updateContextDefinition(context.config, 'module', {
+            name: 'module',
             callback: {}
         }, false);
 
@@ -191,8 +202,21 @@
         return target;
     }
 
-    function resolvePath(config, currentPath, targetPath) {
+    function resolveRelative(currentPath, targetPath) {
         currentPath = currentPath == "" ? "" : currentPath.substring(0, currentPath.lastIndexOf("/"));
+        var currentPathParts = currentPath === "" ? [] : currentPath.split("/");
+        var targetPathParts = targetPath.split("/");
+        for (var i = 0; i < targetPathParts.length; i++) {
+            if (targetPathParts[i] == "..") {
+                currentPathParts.splice(-1, 1);
+            } else if (targetPathParts[i] !== "." && targetPathParts[i] !== "") {
+                currentPathParts.push(targetPathParts[i]);
+            }
+        }
+        return currentPathParts.join("/");
+    }
+
+    function resolvePath(config, currentPath, targetPath) {
         var resultPath;
 
         var prefixIndex = targetPath.indexOf("!");
@@ -203,16 +227,7 @@
         }
 
         if (targetPath.indexOf("./") === 0 || targetPath.indexOf("../") === 0) {
-            var currentPathParts = currentPath === "" ? [] : currentPath.split("/");
-            var targetPathParts = targetPath.split("/");
-            for (var i = 0; i < targetPathParts.length; i++) {
-                if (targetPathParts[i] == "..") {
-                    currentPathParts.splice(-1, 1);
-                } else if (targetPathParts[i] !== "." && targetPathParts[i] !== "") {
-                    currentPathParts.push(targetPathParts[i]);
-                }
-            }
-            resultPath = currentPathParts.join("/");
+            resultPath = resolveRelative(currentPath, targetPath);
         } else {
             // We have to check for main files here instead of in translation so that we can 
             // use this to record the module in memory locally. Otherwise a developer could
@@ -371,7 +386,7 @@
 
                 var loadScript = function(name, fn) {
                     updateContextDefinition(config, name);
-                    var src = ((name.indexOf('/') === 0 ? './' : config.baseUrl) + '/' + translatePath(config, name) + '.js').replace('//', '/');
+                    var src = ((name.indexOf('/') === 0 ? './' : config.baseUrl) + '/' + translatePath(config, name) + '.js').replace(/\/\//g, '/');
                     Transport(name, src, function() {
                         completeScriptLoad(config, name, errorback, function() {
                             fn();
@@ -485,8 +500,8 @@
             }
         };
     } else if (typeof module === 'undefined') {
-        window.require = require;
-        window.define = define;
+        global.require = require;
+        global.define = define;
     }
 
-})(typeof require === 'object' ? require : {});
+})(typeof require === 'object' ? require : {}, self);

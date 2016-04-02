@@ -3,9 +3,5 @@ language: node_js
 node_js:
   - "0.10.26"
 
-before_install:
-  - cd lamda
-  - npm install -g gulp
-
 script:
-  - gulp
+  - ./build.sh

@@ -1,27 +1,13 @@
 {
-  "name": "lamda",
-  "version": "0.3.0",
-  "description": "Light Asynchronous Module Definition Alternative",
-  "main": "lamda.js",
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/PepsRyuu/lamda.git"
-  },
-  "author": "Paul Sweeney",
-  "license": "MIT",
-  "readmeFilename": "README.md",
-  "devDependencies": {
-    "karma": "~0.12.0",
-    "gulp": "~3.5.6",
-    "gulp-uglify": "~0.2.1",
-    "gulp-rename": "~1.2.0",
-    "gulp-clean": "~0.2.4",
-    "gulp-karma": "0.0.4",
-    "karma-phantomjs-launcher": "~0.1.2",
-    "mocha": "~1.18.2",
-    "karma-mocha": "~0.1.3",
-    "chai": "~1.9.1",
-    "karma-chai": "~0.1.0",
-    "karma-mocha-reporter": "~0.2.2"
-  }
+    "name": "lamda",
+    "version": "0.4.0",
+    "description": "Light Asynchronous Module Definition Alternative",
+    "main": "lamda.js",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/PepsRyuu/lamda.git"
+    },
+    "author": "Paul Sweeney",
+    "license": "MIT",
+    "readmeFilename": "README.md"
 }
