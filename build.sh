@@ -7,6 +7,14 @@ npm install
 
 node build-tasks.js test
 
+LICENSE=`cat LICENSE`
+rm -rf lamda/dist
+mkdir lamda/dist
+node node_modules/uglifyjs/bin/uglifyjs lamda/lamda.js \
+    -o lamda/dist/lamda.min.js \
+    --mangle --compress \
+    --preamble "/*${LICENSE}*/"
+
 if [ "$#" -ne 0 ] && [ $1 = "--release" ]
 then
     # Increment package json
