@@ -91,8 +91,11 @@ switch(task) {
 
         if (versionType === "major") {
             currVersion[0]++;
+            currVersion[1] = 0;
+            currVersion[2] = 0;
         } else if (versionType === "minor") {
             currVersion[1]++;
+            currVersion[2] = 0;
         } else {
             currVersion[2]++;
         }
