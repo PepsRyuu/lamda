@@ -1,12 +1,12 @@
 {
     "name": "lamda-optimizer",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "description": "Lamda Optimizer",
     "main": "lamda-optimizer.js",
     "dependencies": {
         "uglify-js": "~2.4.12",
         "uneval": "~0.1.2",
-        "lamda": "0.3.3"
+        "lamda": "0.3.4"
     },
     "repository": {
         "type": "git",
