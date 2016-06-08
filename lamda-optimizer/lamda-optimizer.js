@@ -114,9 +114,6 @@ exports = module.exports = function(config, outputdir, callback) {
         });
 
         var outputFile = module.name;
-        if (module.isMain) {
-            outputFile += "/main";
-        }
 
         recursiveMkdir(outputdir + "/" + outputFile.substring(0, outputFile.lastIndexOf("/")));
         if (config.minify) {
@@ -147,15 +144,27 @@ exports = module.exports = function(config, outputdir, callback) {
         });
 
         lamda.createContext(currentConfig);
-        if (module.name !== module.location) {
-            lamda.require.s.contexts[currentConfig.context].definitions[module.name] = {
-                name: module.name,
-                dependencies: [module.location],
-                callback: function(main) {
-                    return main;
+
+        // We iterate over all of the modules incase that any of the exported
+        // modules are referring to an importing other exported modules.
+        config.modules.forEach(function(mod) {
+            if (mod.location && mod.name !== mod.location) {
+                lamda.require.s.contexts[currentConfig.context].definitions[mod.name] = {
+                    name: mod.name,
+                    dependencies: [mod.location],
+                    callback: function(main) {
+                        return main;
+                    }
+                }
+
+                // This will prevent the module being included in the final
+                // compiled output, but we also don't want to accidentally
+                // make a module exclude itself from its own output!
+                if (mod.name !== module.name) {
+                    module.exclude.push(mod.name);
                 }
             }
-        }
+        });
 
         console.log("\n\t"+module.name+"\n\t----------------------");
         lamda.require(currentConfig, [module.location])
