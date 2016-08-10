@@ -199,8 +199,28 @@ suite('require', function() {
             assert.equal(SimpleObjectModule.name, "SimpleObjectModule");
             done();
         })
-    })
+    });
 
+    test("Compiled plugin modules with JS dependencies should not prefix plugin in the resolved path", function (done) {
+        require([
+            "modules/CompiledPluginModuleWithDependency"
+        ], function (Module) {
+            expect(Module.name).to.equal("MyTemplate");
+            expect(Module.dependencies[0].name).to.equal("MyModule");
+            done();
+        })
+    });
+
+    test("A nested require call will still complete, even if running as part of a build", function (done) {
+        require({
+            isBuild: true
+        }, [
+            "modules/module-tree/ModuleTree"
+        ], function (Module) {
+            expect(Module).to.be.undefined;
+            done();
+        })
+    }); 
 });
 
 suite("require.config()", function() {
@@ -486,7 +506,37 @@ suite("Special Imports", function() {
         });
 
         
-    })
+    });
+
+    test("require imports will resolve any dependencies relative to the current module", function (done) {
+        require([
+            "modules/SimpleModule1"
+        ], function(GlobalContextSimpleModule) {
+            define("modules/MyModule", ["require"], function(require) {
+                return {
+                    importModule: function(cb) {
+                        require([
+                            "./SimpleModule1"
+                        ], function() {
+                            cb(arguments[0]);
+                        })
+                    }
+                }
+            });
+
+            require({
+                context: "lol"
+            }, [
+                "modules/MyModule"
+            ], function(MyModule) {
+                MyModule.importModule(function(SimpleModule) {
+                    assert.equal(SimpleModule.name, "SimpleModule1");
+                    assert.notEqual(GlobalContextSimpleModule, SimpleModule);
+                    done();
+                })
+            });
+        });
+    });
 });
 
 suite("Plugins", function() {

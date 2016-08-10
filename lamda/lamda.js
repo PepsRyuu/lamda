@@ -216,15 +216,28 @@
         return currentPathParts.join("/");
     }
 
-    function resolvePath(config, currentPath, targetPath) {
+    function splitPrefix(path) {
+        if (path.indexOf("!") > -1) {
+            var parts = path.split("!");
+            return {
+                prefix: parts[0] + "!",
+                path: parts[1]
+            };
+        } else {
+            return {
+                prefix: '',
+                path: path
+            };
+        }
+    }
+
+    function resolvePath(config, current, target) {
         var resultPath;
 
-        var prefixIndex = targetPath.indexOf("!");
-        var prefix = "";
-        if (prefixIndex > -1) {
-            prefix = targetPath.substring(0, prefixIndex) + "!";
-            targetPath = targetPath.substring(prefixIndex + 1, targetPath.length);
-        }
+        var currentParts = splitPrefix(current);
+        var targetParts = splitPrefix(target);
+        var currentPath = currentParts.path;
+        var targetPath = targetParts.path;
 
         if (targetPath.indexOf("./") === 0 || targetPath.indexOf("../") === 0) {
             resultPath = resolveRelative(currentPath, targetPath);
@@ -234,7 +247,8 @@
             // import "pkg" and "pkg/main" as two separate modules even though they're the same.
             resultPath = checkIfPackageAndGetMain(config, targetPath);
         }
-        return prefix + resultPath;
+
+        return targetParts.prefix + resultPath;
     }
 
     function completeScriptLoad(config, name, errorback, callback, ignoreDependencies) {
@@ -435,6 +449,10 @@
 
                 if (dependencyPath === "require") {
                     var localRequire = function(dependencies, callback) {
+                        dependencies = dependencies.map(function(dep) {
+                            return resolvePath(config, currentPath, dep);
+                        });
+
                         require({
                             context: config.context
                         }, dependencies, callback);
@@ -470,8 +488,11 @@
             if (callback) {
                 callback.apply(null, args);
             }
+        } else {
+            if (callback) {
+                callback();
+            }
         }
-
     }
 
     require.reset = function() {
