@@ -4,6 +4,6 @@
     "express": "^4.13.4",
     "mocha": "~1.18.2",
     "mocha-phantomjs": "^4.0.2",
-    "uglifyjs": "^2.4.10"
+    "uglify-js": "^2.7.3"
   }
 }

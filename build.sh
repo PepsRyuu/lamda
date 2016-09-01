@@ -10,7 +10,7 @@ node build-tasks.js test-lamda
 LICENSE=`cat LICENSE`
 rm -rf lamda/dist
 mkdir lamda/dist
-node node_modules/uglifyjs/bin/uglifyjs lamda/lamda.js \
+node node_modules/uglify-js/bin/uglifyjs lamda/lamda.js \
     -o lamda/dist/lamda.min.js \
     --mangle --compress --verbose \
     --preamble "/*${LICENSE}*/" 
