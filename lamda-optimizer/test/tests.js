@@ -173,6 +173,23 @@ describe ("Optimizer Features", function() {
         }
         xhr.send();
     });
+
+    it ("super-complex-exclude-test", function (done) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "modules/super-complex-exclude-test/A.js", true);
+        xhr.onload = function() {
+            var defines = getDefines(xhr.responseText);
+            expect(defines.length).to.equal(6);
+            expect(defines.indexOf("super-complex-exclude-test/A") > -1).to.be.true;
+            expect(defines.indexOf("super-complex-exclude-test/B") > -1).to.be.true;
+            expect(defines.indexOf("super-complex-exclude-test/C") > -1).to.be.true;
+            expect(defines.indexOf("super-complex-exclude-test/G") > -1).to.be.true;
+            expect(defines.indexOf("super-complex-exclude-test/H") > -1).to.be.true;
+            expect(defines.indexOf("super-complex-exclude-test/I") > -1).to.be.true;
+            done();
+        }
+        xhr.send();
+    });
     
     it ("appending main - TODO: refactor api");
     

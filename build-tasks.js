@@ -45,7 +45,8 @@ switch(task) {
                 {name: "LocationModule", location: "location-module-impl/LocationModuleImpl"},
                 {name: "ModuleImportingEmptyDependency"},
                 {name: "exclude-test/complex-module-1/ComplexModule1", exclude: ["exclude-test/complex-module-2/ComplexModule2"]},
-                {name: "exclude-test/complex-module-2/ComplexModule2"}
+                {name: "exclude-test/complex-module-2/ComplexModule2"},
+                {name: "super-complex-exclude-test/A", exclude: ["super-complex-exclude-test/D"]}
             ]
         }, "lamda-optimizer/target/test/modules", function(){});
 

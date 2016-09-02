@@ -58,6 +58,14 @@
         // Handle all of the defines before this require call, and then load scripts
         completeScriptLoad(config, '', errorback, function() {
             loadDependencyScripts(config, '', dependencies, errorback, function() {
+
+                var definitions = require.s.contexts[config.context].definitions;
+                dependencies.forEach(function(dep) {
+                    if (definitions[dep]) {
+                        definitions[dep].referenceCount++;
+                    }
+                });
+
                 loadDependencyInstances(config, '', dependencies, callback);
             });
         });
@@ -267,14 +275,31 @@
             // has no name then we assign it the name that was passed into this function instead. This would
             // be assigned to the anonymous module in the queue, which there should only be one.
             definitionTemp.name = checkIfPackageAndGetMain(config, definitionTemp.name || name);
+
             updateContextDefinition(config, definitionTemp.name, definitionTemp);
         }
 
         while (definitionTemp = queue.pop()) {
             (function(localDef) {
                 loadDependencyScripts(config, localDef.name, localDef.dependencies, errorback, function() {
+                    var definitions = require.s.contexts[config.context].definitions;
                     require.s.contexts[config.context].definitions[localDef.name].isLoading = false;
                     triggerListeners(localDef.name, config);
+
+                    var increaseReferenceCount = function(name) {
+                        if (definitions[name]){
+                            if (definitions[name].dependencies) {
+                                definitions[name].dependencies.forEach(function(dep) {
+                                    var depName = resolvePath(config, name, dep);
+                                    if (definitions[depName]) {
+                                        definitions[depName].referenceCount++;
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    increaseReferenceCount(localDef.name);
 
                     if (--notCompleted === 0) {
                         callback();
@@ -358,21 +383,7 @@
                 var pluginName = prefixIndex > -1 ? resolvePath(config, currentPath, dependencyPath.substring(0, prefixIndex)) : undefined;
                 var fullName = resolvePath(config, currentPath, dependencyPath);
 
-                var increaseReferenceCount = function(name) {
-                    if (definitions[name]) {
-                        if (definitions[name].dependencies) {
-                            definitions[name].dependencies.forEach(function(dep) {
-                                var depName = resolvePath(config, name, dep);
-                                if (definitions[depName]) {
-                                    definitions[resolvePath(config, name, dep)].referenceCount++;
-                                }
-                            });
-                        }
-                    }
-                }
-
                 var finish = function() {
-                    increaseReferenceCount(fullName);
                     --notCompleted === 0 && callback();
                 }
 

@@ -1,0 +1,57 @@
+A
+
+↓
+
+B    →   D
+       
+↓   ↗    ↓ 
+          
+C        E 
+
+         ↓
+
+↓ ↘      F
+
+         ↓
+
+G   ←    H
+
+         ↓
+
+         I
+
+Reference Counts:
+
+New         Old (pre-0.4)
+A - 1       A - 1
+B - 1       B - 1
+C - 1       C - 1
+D - 2       D - 2
+E - 1       E - 2
+F - 1       F - 1
+G - 2       G - 3
+H - 2       H - 2
+I - 1       I - 2
+
+Exclude D:
+
+New         Old Lamda + Old Opt   New Lamda + Old Opt
+A - 1       A - 1                 A - 1
+B - 1       B - 1                 B - 1
+C - 1       C - 1                 C - 1
+D - 0       D - 0                 D - 0
+E - 0       E - 1                 E - 0
+F - 0       F - 0                 F - 0
+G - 1       G - 2                 G - 1
+H - 1       H - 1                 H - 1
+I - 1       I - 1                 I - 0
+
+The old approach was inaccurate and didn't properly keep track of dependencies.
+When a dependency was included, it doesn't matter if it was already defined, it and its immediate children will be incremented. This is why for "D", "E" was set to 2 and "F" was still at 1. Two modules imported "D" and only one module ever imported "F" which was "E".
+"H" was set to two because "F" and "C" included it, and as a result, its immediate dependency "I" was incremented twice.
+
+The optimiser was also inaccurate. When a module was excluded, it recursively went through the dependencies and decremented each by 1.
+This worked most of the time, however, as you can see, "I" was also removed because it assumed that "H" was going to be completely excluded even though it should remain because "C" depends on "H".
+
+The new approach in Lamda still increments the defined module and its immediate children, but only does so when the module is defined for the first time. The optimiser was also updated to only recursively continue down the tree decrementing references if the module it is currently at is decremented to 0.
+

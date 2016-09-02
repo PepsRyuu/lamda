@@ -15,7 +15,7 @@ exports = module.exports = function(config, outputdir, callback) {
         if (matches) {
             lamda.require.s.contexts[currentConfig.context].definitions[name].licenses = matches;
         }
-        
+
         eval(script);
         onload();
     });
@@ -35,11 +35,10 @@ exports = module.exports = function(config, outputdir, callback) {
 
                 var definition = definitions[fullDependencyName];
                 if (definition) {
-
                     definition.referenceCount--;
-                    decreaseDependencyReferenceCounts(config, definition.name, definition.dependencies);
 
                     if (definition.referenceCount <= 0) {
+                        decreaseDependencyReferenceCounts(config, definition.name, definition.dependencies);
                         delete definitions[fullDependencyName];
                     }
                 }
@@ -50,6 +49,7 @@ exports = module.exports = function(config, outputdir, callback) {
     function excludeDefinitions(config, definitions) {
         for (var exportDef in definitions) {
             if (currentModule.exclude.indexOf(exportDef) > -1) {
+                definitions[exportDef].referenceCount = 0;
                 decreaseDependencyReferenceCounts(config, exportDef, definitions[exportDef].dependencies)
             }
         }
@@ -59,7 +59,7 @@ exports = module.exports = function(config, outputdir, callback) {
             if (currentModule.exclude.indexOf(exportDef) > -1) {
                 delete definitions[exportDef];
             }
-        }  
+        }
 
         // Remove the stubs from compilation
         delete definitions["require"];
@@ -196,5 +196,5 @@ exports = module.exports = function(config, outputdir, callback) {
     if (callback) {
         callback();
     }
-    
+
 }
