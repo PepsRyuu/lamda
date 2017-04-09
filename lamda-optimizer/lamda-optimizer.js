@@ -22,9 +22,9 @@ exports = module.exports = function(config, outputdir, callback) {
 
     // Some plugins use these nodeRequire imports during build.
     require.nodeRequire = require;
-    GLOBAL.define = lamda.define;
+    global.define = lamda.define;
     lamda.require.nodeRequire = require;
-    GLOBAL.nodeRequire = require;
+    global.nodeRequire = require;
 
     function decreaseDependencyReferenceCounts(config, module, dependencies) {
         var context = lamda.require.s.contexts[currentModule.name];
